@@ -228,7 +228,7 @@ class MozzoNagiosClient:
         if not found:
             print("🎉 No unhandled service alerts found!")
 
-    def show_service_issues(self, host = None):
+    def show_service_issues(self, host=None):
         conditions = {4: "⚠️  WARNING", 8: "❓UNKNOWN", 16: "❌ CRITICAL"}
         print("\n--- List Service Issues ---")
         services = (
