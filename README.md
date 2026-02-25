@@ -94,7 +94,8 @@ date_format: "%m-%d-%Y %H:%M:%S"
 
 ## Usage
 
-You can run `mozzo` (if installed) or `./mozzo.py` (if running from source).
+> [!IMPORTANT]
+> You can run `mozzo` (if installed) or `./mozzo.py` or `python mozzo.py` (if running from source).
 
 ### View Nagios process status
 
