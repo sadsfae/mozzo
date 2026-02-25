@@ -1,6 +1,18 @@
 # CHANGELOG
 
 
+## v0.2.1 (2026-02-25)
+
+### Bug Fixes
+
+- Correct status check.
+  ([`8fb89c4`](https://github.com/sadsfae/mozzo/commit/8fb89c47bc6d47720455db2523c3e386fba7a2b2))
+
+* We were referencing the wrong JSON keys so our --status call was incorrect.
+
+fixes: https://github.com/sadsfae/mozzo/issues/6
+
+
 ## v0.2.0 (2026-02-25)
 
 ### Bug Fixes
