@@ -24,7 +24,7 @@ A lightweight CLI for acknowledging and managing Nagios Core alerts via its nati
   - [Set downtime for a specific service](#set-downtime-for-a-specific-service)
   - [Toggle global alerts](#toggle-global-alerts)
   - [Setting Ack or Downtime with a Custom Message](#setting-ack-or-downtime-with-a-custom-message)
-- [License](#license)
+- [Contributing](#contributing)
 
 ## About
 
@@ -162,6 +162,7 @@ mozzo --ack --host host01.example.com --message "Acknowledged per ticket INC-123
 mozzo --set-downtime --host host01.example.com --all-services -m "Patching window"
 ```
 
-## License
+## Contributing
 
-This project is licensed under the **GPLv3** License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details. Author: Will Foster (wfoster@pm.me).
+* Please open pull requests against the [development](https://github.com/sadsfae/mozzo/tree/development) branch
+* I maintain an Ansible playbook to [install Nagios Core here](https://github.com/sadsfae/ansible-nagios)
