@@ -162,7 +162,7 @@ mozzo --ack --host host01.example.com --message "Acknowledged per ticket INC-123
 mozzo --set-downtime --host host01.example.com --all-services -m "Patching window"
 ```
 
-### Contributing
+## Contributing
 
 * Please open pull requests against the [development](https://github.com/sadsfae/mozzo/tree/development) branch
 * I maintain an Ansible playbook to [install Nagios Core here](https://github.com/sadsfae/ansible-nagios)
