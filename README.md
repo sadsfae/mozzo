@@ -71,7 +71,16 @@ Mozzo requires a configuration file named `config.yml`. It will search for this 
 2. `./config.yml` (Current directory)
 3. `/etc/mozzo/config.yml`
 
-Create a `config.yml` with the following structure:
+> [!TIP]
+> Copy the example `config.yml` and edit it first.
+
+```bash
+mkdir -p ~/.config/mozzo
+curl -s -o ~/.config/mozzo/config.yml https://raw.githubusercontent.com/sadsfae/mozzo/refs/heads/main/config.yml
+vim ~/.config/mozzo/config.yml
+```
+
+Your `config.yml` should have the following structure:
 
 ```yaml
 nagios_server: https://nagios.example.com
