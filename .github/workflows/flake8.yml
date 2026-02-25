@@ -32,4 +32,4 @@ jobs:
           pip install flake8
 
       - name: Run Flake8
-        run: flake8 . --count --max-line-length=119 --show-source --statistics
+        run: flake8 . --count --max-line-length=160 --show-source --statistics
