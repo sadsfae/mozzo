@@ -2,12 +2,17 @@
 
 A lightweight command-line assistant for acknowledging and managing Nagios Core alerts via its native CGI scripts.
 
+[![Flake8 Lint](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml/badge.svg)](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml)
+[![PyPI version](https://img.shields.io/pypi/v/goldteeth.svg)](https://pypi.org/project/mozzo/)
+
+
 ## Table of Contents
 
 - [About](#about)
 - [Installation](#installation)
   - [Option 1: Run from source (Standalone)](#option-1-run-from-source-standalone)
   - [Option 2: Install via pip](#option-2-install-via-pip)
+  - [Option 3: Install via Pypi](#install-via-pypi)
 - [Configuration](#configuration)
 - [Usage](#usage)
   - [View Nagios process status](#view-nagios-process-status)
@@ -33,9 +38,8 @@ a _Mozzo_ is Neapolitan for a young helper who does menial tasks on a ship and i
 You can clone the repository and run the script directly:
 
 ```bash
-git clone [https://github.com/yourusername/mozzo.git](https://github.com/yourusername/mozzo.git)
+git clone https://github.com/sadsfae/mozzo.git
 cd mozzo
-pip install -r requirements.txt # or pip install requests pyyaml
 chmod +x mozzo.py
 ./mozzo.py --help
 ```
@@ -49,7 +53,14 @@ git clone https://github.com/sadsfae/mozzo.git
 cd mozzo
 pip install .
 mozzo --help
+```
 
+### Option 3: Install via Pypi
+
+```bash
+python -m venv mozzo
+. !$/bin/activate
+pip install mozzo
 ```
 
 ## Configuration
@@ -70,7 +81,6 @@ nagios_password: mysecurepassword
 default_downtime: 120 # in minutes
 verify_ssl: false
 date_format: "%m-%d-%Y %H:%M:%S"
-
 ```
 
 ## Usage
