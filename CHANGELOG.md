@@ -1,6 +1,16 @@
 # CHANGELOG
 
 
+## v0.3.0 (2026-02-25)
+
+### Features
+
+- Allow disable services per host or all.
+  ([`5326d02`](https://github.com/sadsfae/mozzo/commit/5326d0224ce13cc3ebb6535f82b054595bb7d175))
+
+fixes: https://github.com/sadsfae/mozzo/issues/18
+
+
 ## v0.2.2 (2026-02-25)
 
 ### Bug Fixes
