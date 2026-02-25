@@ -22,6 +22,10 @@ A lightweight CLI for acknowledging and managing Nagios Core alerts via its nati
   - [Set downtime for a specific host](#set-downtime-for-a-specific-host)
   - [Set downtime for a host and all its services](#set-downtime-for-a-host-and-all-its-services)
   - [Set downtime for a specific service](#set-downtime-for-a-specific-service)
+  - [Disable alerting for a specific service](#disable-alerting-for-a-specific-service)
+  - [Disable alerting for all services on a host](#disable-alerting-for-all-services-on-a-host)
+  - [Enable alerting for all services on a host](#enable-alerting-for-all-services-on-a-host)
+  - [Enable alerting for a specific service](#enable-alerting-for-a-specific-service)
   - [Toggle global alerts](#toggle-global-alerts)
   - [Setting Ack or Downtime with a Custom Message](#setting-ack-or-downtime-with-a-custom-message)
 - [Contributing](#contributing)
@@ -37,7 +41,7 @@ Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using 
 You can clone the repository and run the script directly:
 
 ```bash
-git clone https://github.com/sadsfae/mozzo.git
+git clone [https://github.com/sadsfae/mozzo.git](https://github.com/sadsfae/mozzo.git)
 cd mozzo
 chmod +x mozzo.py
 ./mozzo.py --help
@@ -48,7 +52,7 @@ chmod +x mozzo.py
 Install globally or in a virtual environment to make the `mozzo` command available anywhere:
 
 ```bash
-git clone https://github.com/sadsfae/mozzo.git
+git clone [https://github.com/sadsfae/mozzo.git](https://github.com/sadsfae/mozzo.git)
 cd mozzo
 pip install .
 mozzo --help
@@ -75,14 +79,14 @@ Mozzo requires a configuration file named `config.yml`. It will search for this 
 
 ```bash
 mkdir -p ~/.config/mozzo
-curl -s -o ~/.config/mozzo/config.yml https://raw.githubusercontent.com/sadsfae/mozzo/refs/heads/main/config.yml
+curl -s -o ~/.config/mozzo/config.yml [https://raw.githubusercontent.com/sadsfae/mozzo/refs/heads/main/config.yml](https://raw.githubusercontent.com/sadsfae/mozzo/refs/heads/main/config.yml)
 vim ~/.config/mozzo/config.yml
 ```
 
 Your `config.yml` needs the following structure:
 
 ```yaml
-nagios_server: https://nagios.example.com
+nagios_server: [https://nagios.example.com](https://nagios.example.com)
 nagios_cgi_path: /nagios/cgi-bin
 nagios_username: nagiosadmin
 nagios_password: mysecurepassword
@@ -100,56 +104,72 @@ date_format: "%m-%d-%Y %H:%M:%S"
 
 ```bash
 mozzo --status
-
 ```
 
 ### List unhandled/alerting services
 
 ```bash
 mozzo --unhandled
-
 ```
 
 ### List service issues
 
 ```bash
 mozzo --service-issues [ --host host.example.com ]
-
 ```
 
 ### Acknowledge a specific service
 
 ```bash
 mozzo --ack --host host01.example.com --service "HTTP"
-
 ```
 
 ### Acknowledge a host and all its services
 
 ```bash
 mozzo --ack --host host01.example.com --all-services
-
 ```
 
 ### Set downtime for a specific host
 
 ```bash
 mozzo --set-downtime --host host01.example.com
-
 ```
 
 ### Set downtime for a host and all its services
 
 ```bash
 mozzo --set-downtime --host host01.example.com --all-services
-
 ```
 
 ### Set downtime for a specific service
 
 ```bash
 mozzo --set-downtime --host host01.example.com --service "HTTP"
+```
 
+### Disable alerting for a specific service
+
+```bash
+mozzo --disable-alerts --host host01.example.com --service "HTTP"
+```
+
+### Disable alerting for all services on a host
+
+```bash
+mozzo --disable-alerts --host host01.example.com --all-services
+```
+
+### Enable alerting for all services on a host
+
+```bash
+mozzo --enable-alerts --host host01.example.com --all-services
+```
+
+### Enable alerting for a specific service
+
+```bash
+mozzo --enable-alerts --host host01.example.com --service "HTTP"
 ```
 
 ### Toggle global alerts
@@ -157,7 +177,6 @@ mozzo --set-downtime --host host01.example.com --service "HTTP"
 ```bash
 mozzo --disable-alerts
 mozzo --enable-alerts
-
 ```
 
 ### Setting Ack or Downtime with a Custom Message

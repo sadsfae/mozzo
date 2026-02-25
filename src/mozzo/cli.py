@@ -175,9 +175,31 @@ class MozzoNagiosClient:
         }
         self._post_cmd(payload)
 
-    def toggle_alerts(self, enable=True):
-        print(f"{'Enabling' if enable else 'Disabling'} global notifications...")
-        self._post_cmd({"cmd_typ": 12 if enable else 11, "cmd_mod": 2})
+    def toggle_alerts(self, enable=True, host=None, service=None, all_services=False):
+        if host:
+            if all_services:
+                cmd_typ = 28 if enable else 29
+                print(
+                    f"{'Enabling' if enable else 'Disabling'} notifications for all services on '{host}'..."
+                )
+                self._post_cmd({"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host})
+            elif service:
+                cmd_typ = 22 if enable else 23
+                print(
+                    f"{'Enabling' if enable else 'Disabling'} notifications for '{service}' on '{host}'..."
+                )
+                self._post_cmd(
+                    {"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host, "service": service}
+                )
+            else:
+                cmd_typ = 24 if enable else 25
+                print(
+                    f"{'Enabling' if enable else 'Disabling'} notifications for host '{host}'..."
+                )
+                self._post_cmd({"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host})
+        else:
+            print(f"{'Enabling' if enable else 'Disabling'} global notifications...")
+            self._post_cmd({"cmd_typ": 12 if enable else 11, "cmd_mod": 2})
 
     def show_unhandled(self):
         print("\n--- Unhandled Service Alerts ---")
@@ -307,16 +329,18 @@ def main():
         "--unhandled", action="store_true", help="List unhandled alerts"
     )
     parser.add_argument(
-        "--service-issues", action="store_true", help="List services with issues, acked or otherwise"
+        "--service-issues",
+        action="store_true",
+        help="List services with issues, acked or otherwise",
     )
     parser.add_argument(
         "--status", action="store_true", help="Show Nagios process status"
     )
     parser.add_argument(
-        "--disable-alerts", action="store_true", help="Disable global notifications"
+        "--disable-alerts", action="store_true", help="Disable notifications"
     )
     parser.add_argument(
-        "--enable-alerts", action="store_true", help="Enable global notifications"
+        "--enable-alerts", action="store_true", help="Enable notifications"
     )
 
     args = parser.parse_args()
@@ -331,9 +355,19 @@ def main():
     elif args.status:
         client.show_status()
     elif args.disable_alerts:
-        client.toggle_alerts(enable=False)
+        client.toggle_alerts(
+            enable=False,
+            host=args.host,
+            service=args.service,
+            all_services=args.all_services,
+        )
     elif args.enable_alerts:
-        client.toggle_alerts(enable=True)
+        client.toggle_alerts(
+            enable=True,
+            host=args.host,
+            service=args.service,
+            all_services=args.all_services,
+        )
     elif args.ack and args.host:
         if args.all_services:
             client.ack_all_services(args.host)
