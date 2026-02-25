@@ -24,6 +24,8 @@ A lightweight command-line assistant for acknowledging and managing Nagios Core 
 
 Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using standard HTTPS requests. It allows you to acknowledge alerts, schedule downtime, and view statuses without needing to install specialized Nagios libraries or scrape HTML.
 
+a _Mozzo_ is Neapolitan for a young helper who does menial tasks on a ship and is quick to acknowledge things.
+
 ## Installation
 
 ### Option 1: Run from source (Standalone)
@@ -37,14 +39,13 @@ pip install -r requirements.txt # or pip install requests pyyaml
 chmod +x mozzo.py
 ./mozzo.py --help
 ```
-````
 
 ### Option 2: Install via pip
 
 Install globally or in a virtual environment to make the `mozzo` command available anywhere:
 
 ```bash
-git clone [https://github.com/sadsfae/mozzo.git](https://github.com/sadsfae/mozzo.git)
+git clone https://github.com/sadsfae/mozzo.git
 cd mozzo
 pip install .
 mozzo --help
@@ -62,7 +63,7 @@ Mozzo requires a configuration file named `config.yml`. It will search for this 
 Create a `config.yml` with the following structure:
 
 ```yaml
-nagios_server: [https://nagios.example.com](https://nagios.example.com)
+nagios_server: https://nagios.example.com
 nagios_cgi_path: /nagios/cgi-bin
 nagios_username: nagiosadmin
 nagios_password: mysecurepassword
