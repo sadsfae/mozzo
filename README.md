@@ -23,6 +23,7 @@ A lightweight command-line assistant for acknowledging and managing Nagios Core 
   - [Set downtime for a host and all its services](#set-downtime-for-a-host-and-all-its-services)
   - [Set downtime for a specific service](#set-downtime-for-a-specific-service)
   - [Toggle global alerts](#toggle-global-alerts)
+  - [Setting Ack or Downtime with a Custom Message](#setting-ack-or-downtime-with-a-custom-message)
 - [License](#license)
 
 ## About
@@ -152,6 +153,13 @@ mozzo --set-downtime --host host01.example.com --service "HTTP"
 mozzo --disable-alerts
 mozzo --enable-alerts
 
+```
+
+### Setting Ack or Downtime with a Custom Message
+
+```bash
+mozzo --ack --host host01.example.com --message "Acknowledged per ticket INC-12345"
+mozzo --set-downtime --host host01.example.com --all-services -m "Patching window"
 ```
 
 ## License
