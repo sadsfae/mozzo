@@ -1,6 +1,6 @@
 # mozzo
 
-A lightweight command-line assistant for acknowledging and managing Nagios Core alerts via its native CGI scripts.
+A lightweight CLI for acknowledging and managing Nagios Core alerts via its native CGI scripts.
 
 [![Flake8 Lint](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml/badge.svg)](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml)
 [![PyPI version](https://img.shields.io/pypi/v/mozzo.svg)](https://pypi.org/project/mozzo/)
