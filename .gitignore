@@ -1,0 +1,115 @@
+# --- Python Bytecode & Cache ---
+__pycache__/
+__pycache__
+__pycache__/*
+*.py[cod]
+*$py.class
+
+# linting
+.flake8
+
+# --- C extensions ---
+*.so
+
+# --- Distribution / Packaging ---
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Installer logs ---
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Unit Test / Coverage ---
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# --- Translations ---
+*.mo
+*.pot
+
+# --- Django Stuff (Optional but recommended) ---
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# --- Flask Stuff (Optional) ---
+instance/
+.webassets-cache
+
+# --- Scrapy Stuff (Optional) ---
+.scrapy
+
+# --- Sphinx Documentation ---
+docs/_build/
+
+# --- PyBuilder ---
+target/
+
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints
+
+# --- Virtual Environments ---
+# Common names for virtual envs
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# --- Type Checking (MyPy, Pyre) ---
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# --- Editor / IDE Settings ---
+# JetBrains (PyCharm, IntelliJ)
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Mac OS
+.DS_Store
+
+# --- Environment Variables (SECURITY CRITICAL) ---
+# Never commit your secrets/API keys
+.env
+.env.local
+.env.*

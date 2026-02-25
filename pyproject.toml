@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mozzo"
+version = "0.1.0"
+description = "A command-line assistant for acknowledging and managing Nagios Core alerts."
+readme = "README.md"
+requires-python = ">=3.6"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Will Foster", email = "wfoster@pm.me"}
+]
+dependencies = [
+    "requests",
+    "PyYAML"
+]
+
+[project.scripts]
+mozzo = "mozzo.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --- Semantic Release Configuration ---
+[tool.semantic_release]
+version_variables = [
+    "src/mozzo/__init__.py:__version__"
+]
+version_toml = [
+    "pyproject.toml:project.version"
+]
+branch = "main"
+upload_to_pypi = true
+upload_to_release = true
+build_command = "pip install build && python -m build"
+commit_parser = "angular"

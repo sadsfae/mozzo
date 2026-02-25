@@ -1,0 +1,35 @@
+name: Flake8 Lint
+
+on:
+  push:
+    branches:
+      - development
+    paths:
+      - "**/*.py"
+  pull_request:
+    branches:
+      - development
+      - main
+    paths:
+      - "**/*.py"
+
+jobs:
+  flake8-lint:
+    runs-on: ubuntu-latest
+    name: Lint Source Code
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Flake8
+        run: |
+          pip install flake8
+
+      - name: Run Flake8
+        run: flake8 . --count --max-line-length=119 --show-source --statistics

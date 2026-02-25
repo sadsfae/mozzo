@@ -1,2 +1,138 @@
 # mozzo
-Simple Nagios Tool for Managing Alerts and Acknowledgements
+
+A lightweight command-line assistant for acknowledging and managing Nagios Core alerts via its native CGI scripts.
+
+## Table of Contents
+
+- [About](#about)
+- [Installation](#installation)
+  - [Option 1: Run from source (Standalone)](#option-1-run-from-source-standalone)
+  - [Option 2: Install via pip](#option-2-install-via-pip)
+- [Configuration](#configuration)
+- [Usage](#usage)
+  - [View Nagios process status](#view-nagios-process-status)
+  - [List unhandled/alerting services](#list-unhandledalerting-services)
+  - [Acknowledge a specific service](#acknowledge-a-specific-service)
+  - [Acknowledge a host and all its services](#acknowledge-a-host-and-all-its-services)
+  - [Set downtime for a specific host](#set-downtime-for-a-specific-host)
+  - [Set downtime for a host and all its services](#set-downtime-for-a-host-and-all-its-services)
+  - [Set downtime for a specific service](#set-downtime-for-a-specific-service)
+  - [Toggle global alerts](#toggle-global-alerts)
+- [License](#license)
+
+## About
+
+Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using standard HTTPS requests. It allows you to acknowledge alerts, schedule downtime, and view statuses without needing to install specialized Nagios libraries or scrape HTML.
+
+## Installation
+
+### Option 1: Run from source (Standalone)
+
+You can clone the repository and run the script directly:
+
+```bash
+git clone [https://github.com/yourusername/mozzo.git](https://github.com/yourusername/mozzo.git)
+cd mozzo
+pip install -r requirements.txt # or pip install requests pyyaml
+chmod +x mozzo.py
+./mozzo.py --help
+```
+````
+
+### Option 2: Install via pip
+
+Install globally or in a virtual environment to make the `mozzo` command available anywhere:
+
+```bash
+git clone [https://github.com/sadsfae/mozzo.git](https://github.com/sadsfae/mozzo.git)
+cd mozzo
+pip install .
+mozzo --help
+
+```
+
+## Configuration
+
+Mozzo requires a configuration file named `config.yml`. It will search for this file in the following order:
+
+1. `~/.config/mozzo/config.yml`
+2. `./config.yml` (Current directory)
+3. `/etc/mozzo/config.yml`
+
+Create a `config.yml` with the following structure:
+
+```yaml
+nagios_server: [https://nagios.example.com](https://nagios.example.com)
+nagios_cgi_path: /nagios/cgi-bin
+nagios_username: nagiosadmin
+nagios_password: mysecurepassword
+default_downtime: 120 # in minutes
+verify_ssl: false
+date_format: "%m-%d-%Y %H:%M:%S"
+
+```
+
+## Usage
+
+You can run `mozzo` (if installed) or `./mozzo.py` (if running from source).
+
+### View Nagios process status
+
+```bash
+mozzo --status
+
+```
+
+### List unhandled/alerting services
+
+```bash
+mozzo --unhandled
+
+```
+
+### Acknowledge a specific service
+
+```bash
+mozzo --ack --host host01.example.com --service "HTTP"
+
+```
+
+### Acknowledge a host and all its services
+
+```bash
+mozzo --ack --host host01.example.com --all-services
+
+```
+
+### Set downtime for a specific host
+
+```bash
+mozzo --set-downtime --host host01.example.com
+
+```
+
+### Set downtime for a host and all its services
+
+```bash
+mozzo --set-downtime --host host01.example.com --all-services
+
+```
+
+### Set downtime for a specific service
+
+```bash
+mozzo --set-downtime --host host01.example.com --service "HTTP"
+
+```
+
+### Toggle global alerts
+
+```bash
+mozzo --disable-alerts
+mozzo --enable-alerts
+
+```
+
+## License
+
+This project is licensed under the **GPLv3** License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details. Author: Will Foster (wfoster@pm.me).
