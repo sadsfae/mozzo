@@ -31,8 +31,6 @@ A lightweight CLI for acknowledging and managing Nagios Core alerts via its nati
 
 Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using standard HTTPS requests. It allows you to acknowledge alerts, schedule downtime, and view statuses without needing to install specialized Nagios libraries or scrape HTML.
 
-a _Mozzo_ is Neapolitan for a young helper who does menial tasks on a ship and is quick to acknowledge things.
-
 ## Installation
 
 ### Option 1: Run from source (Standalone)
