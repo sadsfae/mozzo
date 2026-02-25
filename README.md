@@ -5,7 +5,6 @@ A lightweight CLI for acknowledging and managing Nagios Core alerts via its nati
 [![Flake8 Lint](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml/badge.svg)](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml)
 [![PyPI version](https://badge.fury.io/py/mozzo.svg)](https://badge.fury.io/py/mozzo)
 
-
 ## Table of Contents
 
 - [About](#about)
@@ -80,7 +79,7 @@ curl -s -o ~/.config/mozzo/config.yml https://raw.githubusercontent.com/sadsfae/
 vim ~/.config/mozzo/config.yml
 ```
 
-Your `config.yml` should have the following structure:
+Your `config.yml` needs the following structure:
 
 ```yaml
 nagios_server: https://nagios.example.com
@@ -170,6 +169,5 @@ mozzo --set-downtime --host host01.example.com --all-services -m "Patching windo
 
 ## Contributing
 
-* Please open pull requests against the [development](https://github.com/sadsfae/mozzo/tree/development) branch
-* I maintain an Ansible playbook to [install Nagios Core here](https://github.com/sadsfae/ansible-nagios)
-
+- Please open pull requests against the [development](https://github.com/sadsfae/mozzo/tree/development) branch
+- I maintain an Ansible playbook to [install Nagios Core here](https://github.com/sadsfae/ansible-nagios)
