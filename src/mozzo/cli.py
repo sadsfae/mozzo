@@ -228,6 +228,38 @@ class MozzoNagiosClient:
         if not found:
             print("🎉 No unhandled service alerts found!")
 
+    def show_service_issues(self, host=None):
+        conditions = {4: "⚠️  WARNING", 8: "❓UNKNOWN", 16: "❌ CRITICAL"}
+        print("\n--- List Service Issues ---")
+        services = (
+            self._get_json({"query": "servicelist", "details": "false"})
+            .get("data", {})
+            .get("servicelist", {})
+        )
+        if host:
+            if host in services:
+                services = {host: services[host]}
+            else:
+                print(f"⚠️  {host} not found.")
+                return
+
+        found = False
+
+        for key, value in services.items():
+            host_has_issues = False
+            for hkey, hvalue in value.items():
+                if hvalue == 4 or hvalue == 8 or hvalue == 16:
+                    host_has_issues = True
+                    found = True
+            if host_has_issues:
+                print(f"{key}:")
+                for hkey, hvalue in value.items():
+                    if hvalue == 4 or hvalue == 8 or hvalue == 16:
+                        print(f"    {conditions[hvalue]} for service: {hkey}")
+
+        if not found:
+            print("🎉 No service issues found!")
+
     def show_status(self):
         print("\n--- Nagios Core Status ---")
         prog = (
@@ -275,6 +307,9 @@ def main():
         "--unhandled", action="store_true", help="List unhandled alerts"
     )
     parser.add_argument(
+        "--service-issues", action="store_true", help="List services with issues, acked or otherwise"
+    )
+    parser.add_argument(
         "--status", action="store_true", help="Show Nagios process status"
     )
     parser.add_argument(
@@ -291,6 +326,8 @@ def main():
 
     if args.unhandled:
         client.show_unhandled()
+    elif args.service_issues:
+        client.show_service_issues(args.host)
     elif args.status:
         client.show_status()
     elif args.disable_alerts:

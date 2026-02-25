@@ -17,6 +17,7 @@ A lightweight CLI for acknowledging and managing Nagios Core alerts via its nati
 - [Usage](#usage)
   - [View Nagios process status](#view-nagios-process-status)
   - [List unhandled/alerting services](#list-unhandledalerting-services)
+  - [List service issue](#list-service-issues)
   - [Acknowledge a specific service](#acknowledge-a-specific-service)
   - [Acknowledge a host and all its services](#acknowledge-a-host-and-all-its-services)
   - [Set downtime for a specific host](#set-downtime-for-a-specific-host)
@@ -112,6 +113,13 @@ mozzo --unhandled
 
 ```
 
+### List service issues
+
+```bash
+mozzo --service-issues [ --host host.example.com ]
+
+```
+
 ### Acknowledge a specific service
 
 ```bash
@@ -166,3 +174,4 @@ mozzo --set-downtime --host host01.example.com --all-services -m "Patching windo
 
 * Please open pull requests against the [development](https://github.com/sadsfae/mozzo/tree/development) branch
 * I maintain an Ansible playbook to [install Nagios Core here](https://github.com/sadsfae/ansible-nagios)
+
