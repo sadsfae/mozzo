@@ -45,7 +45,6 @@ git clone [https://github.com/sadsfae/mozzo.git](https://github.com/sadsfae/mozz
 cd mozzo
 chmod +x mozzo.py
 ./mozzo.py --help
-
 ```
 
 ### Option 2: Install via pip
@@ -57,7 +56,6 @@ git clone [https://github.com/sadsfae/mozzo.git](https://github.com/sadsfae/mozz
 cd mozzo
 pip install .
 mozzo --help
-
 ```
 
 ### Option 3: Install via Pypi
@@ -66,7 +64,6 @@ mozzo --help
 python -m venv mozzo
 . !$/bin/activate
 pip install mozzo
-
 ```
 
 ## Configuration
@@ -84,7 +81,6 @@ Mozzo requires a configuration file named `config.yml`. It will search for this 
 mkdir -p ~/.config/mozzo
 curl -s -o ~/.config/mozzo/config.yml [https://raw.githubusercontent.com/sadsfae/mozzo/refs/heads/main/config.yml](https://raw.githubusercontent.com/sadsfae/mozzo/refs/heads/main/config.yml)
 vim ~/.config/mozzo/config.yml
-
 ```
 
 Your `config.yml` needs the following structure:
@@ -97,7 +93,6 @@ nagios_password: mysecurepassword
 default_downtime: 120 # in minutes
 verify_ssl: false
 date_format: "%m-%d-%Y %H:%M:%S"
-
 ```
 
 ## Usage
@@ -109,84 +104,72 @@ date_format: "%m-%d-%Y %H:%M:%S"
 
 ```bash
 mozzo --status
-
 ```
 
 ### List unhandled/alerting services
 
 ```bash
 mozzo --unhandled
-
 ```
 
 ### List service issues
 
 ```bash
 mozzo --service-issues [ --host host.example.com ]
-
 ```
 
 ### Acknowledge a specific service
 
 ```bash
 mozzo --ack --host host01.example.com --service "HTTP"
-
 ```
 
 ### Acknowledge a host and all its services
 
 ```bash
 mozzo --ack --host host01.example.com --all-services
-
 ```
 
 ### Set downtime for a specific host
 
 ```bash
 mozzo --set-downtime --host host01.example.com
-
 ```
 
 ### Set downtime for a host and all its services
 
 ```bash
 mozzo --set-downtime --host host01.example.com --all-services
-
 ```
 
 ### Set downtime for a specific service
 
 ```bash
 mozzo --set-downtime --host host01.example.com --service "HTTP"
-
 ```
 
 ### Disable alerting for a specific service
 
 ```bash
 mozzo --disable-alerts --host host01.example.com --service "HTTP"
-
 ```
 
 ### Disable alerting for all services on a host
 
 ```bash
 mozzo --disable-alerts --host host01.example.com --all-services
-
 ```
 
 ### Enable alerting for all services on a host
 
 ```bash
 mozzo --enable-alerts --host host01.example.com --all-services
-
 ```
 
 ### Enable alerting for a specific service
 
 ```bash
 mozzo --enable-alerts --host host01.example.com --service "HTTP"
-
 ```
 
 ### Toggle global alerts
@@ -194,7 +177,6 @@ mozzo --enable-alerts --host host01.example.com --service "HTTP"
 ```bash
 mozzo --disable-alerts
 mozzo --enable-alerts
-
 ```
 
 ### Setting Ack or Downtime with a Custom Message
@@ -202,7 +184,6 @@ mozzo --enable-alerts
 ```bash
 mozzo --ack --host host01.example.com --message "Acknowledged per ticket INC-12345"
 mozzo --set-downtime --host host01.example.com --all-services -m "Patching window"
-
 ```
 
 ## Contributing
