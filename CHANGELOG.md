@@ -1,6 +1,34 @@
 # CHANGELOG
 
 
+## v0.2.2 (2026-02-25)
+
+### Bug Fixes
+
+- Bump ver and minor doc edit
+  ([`1c31ffa`](https://github.com/sadsfae/mozzo/commit/1c31ffa06ff3781cc734e6d1849dd76e60801a83))
+
+### Chores
+
+- Add coc
+  ([`89123dc`](https://github.com/sadsfae/mozzo/commit/89123dc7bad082527cf3e6e4b76f3fb492c32729))
+
+- Align TOC
+  ([`5d26d65`](https://github.com/sadsfae/mozzo/commit/5d26d65c3325aa3c77a4071c32daa2e38d6a88e6))
+
+- Doc update
+  ([`03a5cbd`](https://github.com/sadsfae/mozzo/commit/03a5cbd3541960c07eae960ec56f800be6d16e28))
+
+- Doc updates
+  ([`95c3101`](https://github.com/sadsfae/mozzo/commit/95c31012cc46a17bac8f829088f96cb78025bad9))
+
+- Docs update
+  ([`ea69015`](https://github.com/sadsfae/mozzo/commit/ea69015d2333e245eb2c0e3eed997d4f13ef565f))
+
+- Use fury.io for badges
+  ([`2c92546`](https://github.com/sadsfae/mozzo/commit/2c9254634bfdd4dfc9464d905d56e665aa365111))
+
+
 ## v0.2.1 (2026-02-25)
 
 ### Bug Fixes
