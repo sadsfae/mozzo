@@ -10,7 +10,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class MozzoNagiosClient:
-    def __init__(self, config_path=None):
+    def __init__(self, config_path=None, message=None):
         config_file = self._find_config(config_path)
         if not config_file:
             print(
@@ -23,6 +23,7 @@ class MozzoNagiosClient:
         except Exception as e:
             print(f"❌ Error loading {config_file}: {e}")
             sys.exit(1)
+
         self.server = self.config.get("nagios_server", "").rstrip("/")
         self.cgi_path = self.config.get("nagios_cgi_path", "/nagios/cgi-bin").strip("/")
         self.auth = (
@@ -34,6 +35,9 @@ class MozzoNagiosClient:
         self.date_format = self.config.get("date_format", "%m-%d-%Y %H:%M:%S")
         self.cmd_url = f"{self.server}/{self.cgi_path}/cmd.cgi"
         self.json_url = f"{self.server}/{self.cgi_path}/statusjson.cgi"
+
+        # Set the custom message or fallback to default
+        self.message = message if message else "Action issued by Mozzo CLI"
 
     def _find_config(self, provided_path):
         if provided_path and os.path.exists(provided_path):
@@ -54,7 +58,9 @@ class MozzoNagiosClient:
     def _post_cmd(self, payload):
         payload["btnSubmit"] = "Commit"
         payload["com_author"] = self.auth[0]
-        payload["com_data"] = "Action issued by Mozzo CLI"
+        # Inject the dynamically set message
+        payload["com_data"] = self.message
+
         try:
             response = requests.post(
                 self.cmd_url, data=payload, auth=self.auth, verify=self.verify_ssl
@@ -188,10 +194,12 @@ class MozzoNagiosClient:
         found = False
         for host, svc_dict in services.items():
             host_details = hosts.get(host, {})
+
+            # Use tuple for explicit fallback lookups
             host_ack = host_details.get(
-                "problem_has_been_acknowledged",
-                host_details.get("has_been_acknowledged", False),
-            )
+                "problem_has_been_acknowledged"
+            ) or host_details.get("has_been_acknowledged", False)
+
             if (
                 not host_details.get("notifications_enabled", True)
                 or host_ack
@@ -202,9 +210,8 @@ class MozzoNagiosClient:
                 status_code = details.get("status")
                 if status_code in (4, 8, 16):
                     svc_ack = details.get(
-                        "problem_has_been_acknowledged",
-                        details.get("has_been_acknowledged", False),
-                    )
+                        "problem_has_been_acknowledged"
+                    ) or details.get("has_been_acknowledged", False)
                     if (
                         not details.get("notifications_enabled", True)
                         or svc_ack
@@ -244,6 +251,12 @@ def main():
         description="Mozzo - Nagios Core command line assistant"
     )
     parser.add_argument("-c", "--config", type=str, help="Path to specific config.yml")
+    parser.add_argument(
+        "-m",
+        "--message",
+        type=str,
+        help="Custom message/comment for acknowledgements and downtime",
+    )
     parser.add_argument("--ack", action="store_true", help="Acknowledge an alert")
     parser.add_argument(
         "--downtime",
@@ -269,8 +282,12 @@ def main():
     parser.add_argument(
         "--enable-alerts", action="store_true", help="Enable global notifications"
     )
+
     args = parser.parse_args()
-    client = MozzoNagiosClient(config_path=args.config)
+
+    # Pass the message argument to the client
+    client = MozzoNagiosClient(config_path=args.config, message=args.message)
+
     if args.unhandled:
         client.show_unhandled()
     elif args.status:
