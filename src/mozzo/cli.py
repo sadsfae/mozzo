@@ -235,11 +235,12 @@ class MozzoNagiosClient:
             .get("data", {})
             .get("programstatus", {})
         )
+        # Updated to the correct Nagios JSON keys
         status_map = {
-            "Notifications Enabled": prog.get("notifications_enabled"),
-            "Active Service Checks": prog.get("active_service_checks_enabled"),
-            "Active Host Checks": prog.get("active_host_checks_enabled"),
-            "Event Handlers": prog.get("event_handlers_enabled"),
+            "Notifications Enabled": prog.get("enable_notifications"),
+            "Active Service Checks": prog.get("execute_service_checks"),
+            "Active Host Checks": prog.get("execute_host_checks"),
+            "Event Handlers": prog.get("enable_event_handlers"),
         }
         for key, val in status_map.items():
             print(f"{key:<25}: {'✅ ENABLED' if val else '❌ DISABLED'}")
