@@ -1,13 +1,16 @@
 # mozzo
 
-A lightweight CLI for acknowledging and managing Nagios Core alerts via its native CGI scripts.
+A lightweight CLI for acknowledging and managing [Nagios Core](https://www.nagios.org/projects/nagios-core/) alerts and reporting via its native CGI scripts.
 
 [![Flake8 Lint](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml/badge.svg)](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml)
 [![PyPI version](https://badge.fury.io/py/mozzo.svg)](https://badge.fury.io/py/mozzo)
 
 ## About
 
-Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using standard HTTPS requests. It allows you to acknowledge alerts, schedule downtime, and view statuses without needing to install specialized Nagios libraries or scrape HTML.
+Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using standard HTTPS requests. It allows you to acknowledge alerts, schedule downtime, generate service/host uptime reporting and view statuses without needing to install specialized Nagios libraries or scrape HTML.
+
+> [!NOTE]
+> This is compatible with Nagios Core 4.4.x and not been tested with 4.5.x
 
 ## Table of Contents
 
