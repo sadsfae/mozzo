@@ -356,7 +356,7 @@ class MozzoNagiosClient:
     def show_single_service(self, service=None, show_output=False, output_filter=0, output_format="text"):
         """Displays a specific service, across all hosts."""
         if service is None:
-            print(f"⚠️  No service specified.  We should never be here.", file=sys.stderr)
+            print("⚠️  No service specified.  We should never be here.", file=sys.stderr)
             return
 
         params = {"query": "servicelist", "details": "true"}
@@ -364,7 +364,7 @@ class MozzoNagiosClient:
         services = response.get("data", {}).get("servicelist", {})
 
         if not services:
-            print(f"⚠️  No services found.", file=sys.stderr)
+            print("⚠️  No services found.", file=sys.stderr)
             return
 
         status_map = {
@@ -423,7 +423,6 @@ class MozzoNagiosClient:
                     print(r['long_plugin_output'])
                     print("")
             print("-" * 70)
-
 
     def show_service_uptime(self, host, service, days=365, output_format="text"):
         """Displays the current uptime duration and dynamic availability report."""
