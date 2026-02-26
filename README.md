@@ -243,7 +243,14 @@ mozzo --status --host host01.example.com --service "DNS" --show-output
 
 ### Listing Service Details with Filter
 
-1 = PENDING; 2 = OK; 4 = WARNING; 8 = UNKNOWN; 16 = CRITICAL
+| Value | Status    | Meaning    |
+|-------|-----------|------------|
+| 1     | PENDING   | Pending    |
+| 2     | OK        | OK / Normal|
+| 4     | WARNING   | Warning    |
+| 8     | UNKNOWN   | Unknown    |
+| 16    | CRITICAL  | Critical   |
+
 To show DNS results for all hosts that have the service in CRITICAL state:
 
 ```bash
