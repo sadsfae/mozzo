@@ -280,7 +280,7 @@ class MozzoNagiosClient:
         if not found:
             print("🎉 No service issues found!")
 
-    def show_host_services(self, host, service=None, output_format="text"):
+    def show_host_services(self, host, service=None, show_output=False, output_filter=0, output_format="text"):
         """Displays services for a specific host, optionally filtered by a specific service."""
         params = {"query": "servicelist", "hostname": host, "details": "true"}
         response = self._get_json(params)
@@ -306,19 +306,27 @@ class MozzoNagiosClient:
 
             status_code = details.get("status")
             status_text = status_map.get(status_code, f"[{status_code}]")
-            results.append(
-                {
-                    "host": host,
-                    "service": svc_name,
-                    "status_code": status_code,
-                    "status": status_text,
-                }
-            )
+            if (output_filter > 0 and output_filter == status_code) or output_filter == 0:
+                results.append(
+                    {
+                        "host": host,
+                        "service": svc_name,
+                        "status_code": status_code,
+                        "status": status_text,
+                        "plugin_output": details.get("plugin_output"),
+                        "long_plugin_output": details.get("long_plugin_output"),
+                    }
+                )
 
         if not results and service:
-            print(
-                f"⚠️  Service '{service}' not found on host '{host}'.", file=sys.stderr
-            )
+            if output_filter > 0:
+                print(
+                    f"⚠️  Service '{service}' not found on host '{host}' for specified filter.", file=sys.stderr
+                )
+            else:
+                print(
+                    f"⚠️  Service '{service}' not found on host '{host}'.", file=sys.stderr
+                )
             return
 
         if output_format == "json":
@@ -336,7 +344,86 @@ class MozzoNagiosClient:
                 print(f"\n--- Monitored Services for Host: '{host}' ---")
 
             for r in results:
-                print(f"{r['status']:<12} | {r['service']}")
+                print("------------------------------------")
+                print(f"{r['status']:<12} | {r['service']:>20}")
+                if show_output:
+                    print("------------------------------------")
+                    print(r['plugin_output'])
+                    print(r['long_plugin_output'])
+                    print("")
+            print("------------------------------------")
+
+    def show_single_service(self, service=None, show_output=False, output_filter=0, output_format="text"):
+        """Displays a specific service, across all hosts."""
+        if service is None:
+            print(f"⚠️  No service specified.  We should never be here.", file=sys.stderr)
+            return
+
+        params = {"query": "servicelist", "details": "true"}
+        response = self._get_json(params)
+        services = response.get("data", {}).get("servicelist", {})
+
+        if not services:
+            print(f"⚠️  No services found.", file=sys.stderr)
+            return
+
+        status_map = {
+            1: "⏳ PENDING",
+            2: "✅ OK",
+            4: "⚠️  WARNING ",
+            8: "❓ UNKNOWN",
+            16: "❌ CRITICAL",
+        }
+
+        results = []
+        for system_name, details in services.items():
+            if service in details:
+                status_code = details.get(service).get("status")
+                status_text = status_map.get(status_code, f"[{status_code}]")
+                if (output_filter > 0 and output_filter == status_code) or output_filter == 0:
+                    results.append(
+                        {
+                            "host": system_name,
+                            "service": service,
+                            "status_code": status_code,
+                            "status": status_text,
+                            "plugin_output": details.get(service).get("plugin_output"),
+                            "long_plugin_output": details.get(service).get("long_plugin_output"),
+                        }
+                    )
+
+        if not results and service:
+            # it would not make sense to be here ...
+            if output_filter > 0:
+                print(
+                    f"⚠️  No results found for service '{service}' using the specified filter.", file=sys.stderr
+                )
+            else:
+                print(
+                    f"⚠️  No results found for service '{service}'.", file=sys.stderr
+                )
+            return
+
+        if output_format == "json":
+            print(json.dumps(results, indent=2))
+        elif output_format == "csv":
+            writer = csv.DictWriter(
+                sys.stdout, fieldnames=["host", "service", "status_code", "status"]
+            )
+            writer.writeheader()
+            writer.writerows(results)
+        else:
+            print(f"\n--- Monitored Service: '{service}' ---")
+            for r in results:
+                print("-" * 70)
+                print(f"{r['status']:<10} | {r['host']:>55}")
+                if show_output:
+                    print("-" * 70)
+                    print(r['plugin_output'])
+                    print(r['long_plugin_output'])
+                    print("")
+            print("-" * 70)
+
 
     def show_service_uptime(self, host, service, days=365, output_format="text"):
         """Displays the current uptime duration and dynamic availability report."""
@@ -685,6 +772,15 @@ def main():
     parser.add_argument(
         "--enable-alerts", action="store_true", help="Enable notifications"
     )
+    parser.add_argument(
+        "--show-output", default=False, action="store_true", help="Show check output; only used with --service"
+    )
+    parser.add_argument(
+        "--output-filter",
+        type=int,
+        default=0,
+        help="Limit --show-output results (1 = PENDING; 2 = OK; 4 = WARNING; 8 = UNKNOWN; 16 = CRITICAL)",
+    )
 
     args = parser.parse_args()
     client = MozzoNagiosClient(config_path=args.config, message=args.message)
@@ -702,7 +798,9 @@ def main():
             else:
                 client.show_host_uptime(args.host, args.days, args.format)
         elif args.host:
-            client.show_host_services(args.host, args.service, args.format)
+            client.show_host_services(args.host, args.service, args.show_output, args.output_filter, args.format)
+        elif args.service:
+            client.show_single_service(args.service, args.show_output, args.output_filter, args.format)
         else:
             client.show_status()
     elif args.disable_alerts:
