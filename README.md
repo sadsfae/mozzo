@@ -28,6 +28,7 @@ A lightweight CLI for acknowledging and managing Nagios Core alerts via its nati
   - [Enable alerting for a specific service](#enable-alerting-for-a-specific-service)
   - [Toggle global alerts](#toggle-global-alerts)
   - [Setting Ack or Downtime with a Custom Message](#setting-ack-or-downtime-with-a-custom-message)
+  - [Acknowledging all Unhandled Issues](#acknowledging-all-unhandled-issues)
 - [Contributing](#contributing)
 
 ## About
@@ -184,6 +185,13 @@ mozzo --enable-alerts
 ```bash
 mozzo --ack --host host01.example.com --message "Acknowledged per ticket INC-12345"
 mozzo --set-downtime --host host01.example.com --all-services -m "Patching window"
+```
+
+### Acknowledging all Unhandled Issues
+* This bash one-liner can ack all unhandled issues in one swoop.
+
+```bash
+mozzo --unhandled | grep -E -i "critical|warning" | while read -r level host arrow service; do mozzo --ack --host "$host" --service "$service"; done
 ```
 
 ## Contributing
