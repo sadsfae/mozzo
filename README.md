@@ -5,39 +5,45 @@ A lightweight CLI for acknowledging and managing Nagios Core alerts via its nati
 [![Flake8 Lint](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml/badge.svg)](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml)
 [![PyPI version](https://badge.fury.io/py/mozzo.svg)](https://badge.fury.io/py/mozzo)
 
-## Table of Contents
-
-- [About](#about)
-- [Installation](#installation)
-  - [Option 1: Run from source (Standalone)](#option-1-run-from-source-standalone)
-  - [Option 2: Install via pip](#option-2-install-via-pip)
-  - [Option 3: Install via Pypi](#install-via-pypi)
-- [Configuration](#configuration)
-- [Usage](#usage)
-  - [View Nagios process status](#view-nagios-process-status)
-  - [List unhandled/alerting services](#list-unhandledalerting-services)
-  - [List service issue](#list-service-issues)
-  - [Acknowledge a specific service](#acknowledge-a-specific-service)
-  - [Acknowledge a host and all its services](#acknowledge-a-host-and-all-its-services)
-  - [Set downtime for a specific host](#set-downtime-for-a-specific-host)
-  - [Set downtime for a host and all its services](#set-downtime-for-a-host-and-all-its-services)
-  - [Set downtime for a specific service](#set-downtime-for-a-specific-service)
-  - [Disable alerting for a specific service](#disable-alerting-for-a-specific-service)
-  - [Disable alerting for all services on a host](#disable-alerting-for-all-services-on-a-host)
-  - [Enable alerting for all services on a host](#enable-alerting-for-all-services-on-a-host)
-  - [Enable alerting for a specific service](#enable-alerting-for-a-specific-service)
-  - [Toggle global alerts](#toggle-global-alerts)
-  - [Setting Ack or Downtime with a Custom Message](#setting-ack-or-downtime-with-a-custom-message)
-  - [Acknowledging all Unhandled Issues](#acknowledging-all-unhandled-issues)
-- [Contributing](#contributing)
-
 ## About
 
 Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using standard HTTPS requests. It allows you to acknowledge alerts, schedule downtime, and view statuses without needing to install specialized Nagios libraries or scrape HTML.
 
+## Table of Contents
+
+- [Installation](#installation)
+  - [Option 1: Run from Source (Standalone)](#option-1-run-from-source-standalone)
+  - [Option 2: Install via pip](#option-2-install-via-pip)
+  - [Option 3: Install via Pypi](#install-via-pypi)
+- [Configuration](#configuration)
+- [Usage](#usage)
+  - [View Nagios Process Status](#view-nagios-process-status)
+  - [List Unhandled or Alerting services](#list-unhandledalerting-services)
+  - [List Service Issue](#list-service-issues)
+  - [Acknowledge a Specific Service](#acknowledge-a-specific-service)
+  - [Acknowledge a Host and all its Services](#acknowledge-a-host-and-all-its-services)
+  - [Set Downtime for a Specific Host](#set-downtime-for-a-specific-host)
+  - [Set Downtime for a Host and all its Services](#set-downtime-for-a-host-and-all-its-services)
+  - [Set Downtime for a Specific Service](#set-downtime-for-a-specific-service)
+  - [Disable Alerting for a Specific Service](#disable-alerting-for-a-specific-service)
+  - [Disable Alerting for all Services on a Host](#disable-alerting-for-all-services-on-a-host)
+  - [Enable Alerting for all Services on a Host](#enable-alerting-for-all-services-on-a-host)
+  - [Enable Alerting for a Specific Service](#enable-alerting-for-a-specific-service)
+  - [Toggle Global Alerts](#toggle-global-alerts)
+  - [Setting Ack or Downtime with a Custom Message](#setting-ack-or-downtime-with-a-custom-message)
+  - [Acknowledging all Unhandled Issues](#acknowledging-all-unhandled-issues)
+- [Service Reporting and Uptime](#service-reporting-and-uptime)
+  - [Listing all Services by Host](#listing-all-services-by-host)
+  - [Listing Service Details by Host](#listing-service-details-by-host)
+  - [Uptime Reporting](#uptime-reporting)
+    - [Report Uptime by Service](#report-uptime-by-service)
+    - [Report Uptime by Host](#report-uptime-by-host)
+  - [Exporting Report Data](#exporting-report-data)
+- [Contributing](#contributing)
+
 ## Installation
 
-### Option 1: Run from source (Standalone)
+### Option 1: Run from Source (Standalone)
 
 You can clone the repository and run the script directly:
 
@@ -101,79 +107,79 @@ date_format: "%m-%d-%Y %H:%M:%S"
 > [!IMPORTANT]
 > You can run `mozzo` (if installed) or `./mozzo.py` or `python mozzo.py` (if running from source).
 
-### View Nagios process status
+### View Nagios Process Status
 
 ```bash
 mozzo --status
 ```
 
-### List unhandled/alerting services
+### List Unhandled or Alerting services
 
 ```bash
 mozzo --unhandled
 ```
 
-### List service issues
+### List Service Issues
 
 ```bash
 mozzo --service-issues [ --host host.example.com ]
 ```
 
-### Acknowledge a specific service
+### Acknowledge a Specific Service
 
 ```bash
 mozzo --ack --host host01.example.com --service "HTTP"
 ```
 
-### Acknowledge a host and all its services
+### Acknowledge a Host and all its Services
 
 ```bash
 mozzo --ack --host host01.example.com --all-services
 ```
 
-### Set downtime for a specific host
+### Set Downtime for a Specific Host
 
 ```bash
 mozzo --set-downtime --host host01.example.com
 ```
 
-### Set downtime for a host and all its services
+### Set Downtime for a Host and all its Services
 
 ```bash
 mozzo --set-downtime --host host01.example.com --all-services
 ```
 
-### Set downtime for a specific service
+### Set Downtime for a Specific Service
 
 ```bash
 mozzo --set-downtime --host host01.example.com --service "HTTP"
 ```
 
-### Disable alerting for a specific service
+### Disable Alerting for a Specific Service
 
 ```bash
 mozzo --disable-alerts --host host01.example.com --service "HTTP"
 ```
 
-### Disable alerting for all services on a host
+### Disable Alerting for all Services on a Host
 
 ```bash
 mozzo --disable-alerts --host host01.example.com --all-services
 ```
 
-### Enable alerting for all services on a host
+### Enable Alerting for all Services on a Host
 
 ```bash
 mozzo --enable-alerts --host host01.example.com --all-services
 ```
 
-### Enable alerting for a specific service
+### Enable Alerting for a Specific Service
 
 ```bash
 mozzo --enable-alerts --host host01.example.com --service "HTTP"
 ```
 
-### Toggle global alerts
+### Toggle Global Alerts
 
 ```bash
 mozzo --disable-alerts
@@ -192,6 +198,51 @@ mozzo --set-downtime --host host01.example.com --all-services -m "Patching windo
 
 ```bash
 mozzo --unhandled | grep -E -i "critical|warning" | while read -r level host arrow service; do mozzo --ack --host "$host" --service "$service"; done
+```
+
+## Service Reporting and Uptime
+* We also support reporting for uptime per host and per service based on Nagios `archivejson.cgi`
+
+### Listing all Services by Host
+
+```bash
+mozzo --status --host host01.example.com
+```
+
+### Listing Service Details by Host
+
+```bash
+mozzo --status --host host01.example.com --service "DNS"
+```
+
+### Uptime Reporting
+
+> [!NOTE]
+> Default uptime reporting is 365 days if `--days` is not specified.
+
+#### Report Uptime by Service
+
+```bash
+mozzo --status --host host01.example.com --service "DNS" --uptime --days 180
+
+```
+
+#### Report Uptime by Host
+
+```bash
+mozzo --status --host host01.example.com --uptime
+```
+
+### Exporting Report Data
+* You can export in both JSON and CSV
+
+```bash
+mozzo --status --host host01.example.com --service "DNS" --uptime --format json > /tmp/host01_dns.json
+
+```
+
+```bash
+mozzo --status --host host01.example.com --service "HTTP" --uptime --format csv > /tmp/host01_http_json
 ```
 
 ## Contributing
