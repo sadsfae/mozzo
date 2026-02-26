@@ -10,19 +10,19 @@ A lightweight CLI for acknowledging and managing [Nagios Core](https://www.nagio
 Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using standard HTTPS requests. It allows you to acknowledge alerts, schedule downtime, generate service/host uptime reporting and view statuses without needing to install specialized Nagios libraries or scrape HTML.
 
 > [!NOTE]
-> This is compatible with Nagios Core 4.4.x and not been tested with 4.5.x
+> This is compatible with Nagios Core 4.4.x and hasn't been tested with 4.5.x but will probably work.
 
 ## Table of Contents
 
 - [Installation](#installation)
   - [Option 1: Run from Source (Standalone)](#option-1-run-from-source-standalone)
   - [Option 2: Install via pip](#option-2-install-via-pip)
-  - [Option 3: Install via Pypi](#install-via-pypi)
+  - [Option 3: Install via Pypi](#option-3-install-via-pypi)
 - [Configuration](#configuration)
 - [Usage](#usage)
   - [View Nagios Process Status](#view-nagios-process-status)
-  - [List Unhandled or Alerting services](#list-unhandledalerting-services)
-  - [List Service Issue](#list-service-issues)
+  - [List Unhandled or Alerting services](#list-unhandled-or-alerting-services)
+  - [List Service Issues](#list-service-issues)
   - [Acknowledge a Specific Service](#acknowledge-a-specific-service)
   - [Acknowledge a Host and all its Services](#acknowledge-a-host-and-all-its-services)
   - [Set Downtime for a Specific Host](#set-downtime-for-a-specific-host)
@@ -35,12 +35,12 @@ Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using 
   - [Toggle Global Alerts](#toggle-global-alerts)
   - [Setting Ack or Downtime with a Custom Message](#setting-ack-or-downtime-with-a-custom-message)
   - [Acknowledging all Unhandled Issues](#acknowledging-all-unhandled-issues)
-- [Service Reporting and Uptime](#service-reporting-and-uptime)
   - [Listing all Services by Host](#listing-all-services-by-host)
   - [Listing Service Details by Host](#listing-service-details-by-host)
   - [Listing Service Details on All Hosts](#listing-service-details-on-all-hosts)
   - [Listing Service Details with Output](#listing-service-details-with-output)
   - [Listing Service Details with Filter](#listing-service-details-with-filter)
+- [Service Reporting and Uptime](#service-reporting-and-uptime)
   - [Uptime Reporting](#uptime-reporting)
     - [Report Uptime by Service](#report-uptime-by-service)
     - [Report Uptime by Host](#report-uptime-by-host)
@@ -200,14 +200,12 @@ mozzo --set-downtime --host host01.example.com --all-services -m "Patching windo
 ```
 
 ### Acknowledging all Unhandled Issues
+
 * This bash one-liner can ack all unhandled issues in one swoop.
 
 ```bash
 mozzo --unhandled | grep -E -i "critical|warning" | while read -r level host arrow service; do mozzo --ack --host "$host" --service "$service"; done
 ```
-
-## Service Reporting and Uptime
-* We also support reporting for uptime per host and per service based on Nagios `archivejson.cgi`
 
 ### Listing all Services by Host
 
@@ -243,27 +241,33 @@ mozzo --status --host host01.example.com --service "DNS" --show-output
 
 ### Listing Service Details with Filter
 
-| Value | Status    | Meaning    |
-|-------|-----------|------------|
-| 1     | PENDING   | Pending    |
-| 2     | OK        | OK / Normal|
-| 4     | WARNING   | Warning    |
-| 8     | UNKNOWN   | Unknown    |
-| 16    | CRITICAL  | Critical   |
+* You can filter results by passing a human-readable status to `--output-filter`.
+* Valid options are: `PENDING`, `OK`, `WARNING`, `UNKNOWN`, and `CRITICAL`. (Filters are case-insensitive).
 
-To show DNS results for all hosts that have the service in CRITICAL state:
+To show DNS results for all hosts that have the service in a CRITICAL state:
 
 ```bash
-mozzo --status --service "DNS" --show-output --output-filter 16
+mozzo --status --service "DNS" --output-filter CRITICAL
 ```
 
-To show DNS results for a specific host that has the service in CRITICAL state:
+To show DNS results for a specific host that has the service in a CRITICAL state, while also showing the plugin output:
 
 ```bash
-mozzo --status --host host01.example.com --service "DNS" --show-output --output-filter 16
+mozzo --status --host host01.example.com --service "DNS" --show-output --output-filter critical
 ```
 
-You can combine `--show-output` with `--output-filter`
+> [!TIP]
+> Use `--show-output` to see the Nagios plugin's full details
+
+Further, you can combine them all to show full plugin output for **all** DNS failures:
+
+```bash
+mozzo --status --service "DNS" --output-filter CRITICAL --show-output
+```
+
+## Service Reporting and Uptime
+
+* We also support reporting for uptime per host and per service based on Nagios `archivejson.cgi`
 
 ### Uptime Reporting
 
@@ -274,7 +278,6 @@ You can combine `--show-output` with `--output-filter`
 
 ```bash
 mozzo --status --host host01.example.com --service "DNS" --uptime --days 180
-
 ```
 
 #### Report Uptime by Host
@@ -284,18 +287,18 @@ mozzo --status --host host01.example.com --uptime
 ```
 
 ### Exporting Report Data
+
 * You can export in both JSON and CSV
 
 ```bash
 mozzo --status --host host01.example.com --service "DNS" --uptime --format json > /tmp/host01_dns.json
-
 ```
 
 ```bash
-mozzo --status --host host01.example.com --service "HTTP" --uptime --format csv > /tmp/host01_http_json
+mozzo --status --host host01.example.com --service "HTTP" --uptime --format csv > /tmp/host01_http.csv
 ```
 
 ## Contributing
 
-- Please open pull requests against the [development](https://github.com/sadsfae/mozzo/tree/development) branch.
-- I maintain an Ansible playbook to [install Nagios Core here](https://github.com/sadsfae/ansible-nagios) and clients.
+* Please open pull requests against the [development](https://github.com/sadsfae/mozzo/tree/development) branch.
+* I maintain an Ansible playbook to [install Nagios Core here](https://github.com/sadsfae/ansible-nagios) and clients.

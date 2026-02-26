@@ -214,7 +214,9 @@ class MozzoNagiosClient:
             .get("servicelist", {})
         )
 
+        issue_states = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}
         found = False
+
         for host, svc_dict in services.items():
             host_details = hosts.get(host, {})
             host_ack = host_details.get(
@@ -227,9 +229,11 @@ class MozzoNagiosClient:
                 or host_details.get("scheduled_downtime_depth", 0) > 0
             ):
                 continue
+
             for svc_name, details in svc_dict.items():
                 status_code = details.get("status")
-                if status_code in (4, 8, 16):
+
+                if status_code in issue_states:
                     svc_ack = details.get(
                         "problem_has_been_acknowledged"
                     ) or details.get("has_been_acknowledged", False)
@@ -239,19 +243,20 @@ class MozzoNagiosClient:
                         or details.get("scheduled_downtime_depth", 0) > 0
                     ):
                         continue
+
                     found = True
-                    status_text = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}.get(
-                        status_code, f"CODE_{status_code}"
-                    )
+                    status_text = issue_states[status_code]
                     print(
                         f"[{status_text}] {host} -> {svc_name}\n    Output: {details.get('plugin_output')}"
                     )
+
         if not found:
             print("🎉 No unhandled service alerts found!")
 
     def show_service_issues(self, host=None):
-        conditions = {4: "⚠️  WARNING", 8: "❓UNKNOWN", 16: "❌ CRITICAL"}
+        issue_states = {4: "⚠️  WARNING", 8: "❓ UNKNOWN", 16: "❌ CRITICAL"}
         print("\n--- List Service Issues ---")
+
         services = (
             self._get_json({"query": "servicelist", "details": "false"})
             .get("data", {})
@@ -269,18 +274,58 @@ class MozzoNagiosClient:
         for key, value in services.items():
             host_has_issues = False
             for hkey, hvalue in value.items():
-                if hvalue in (4, 8, 16):
+                if hvalue in issue_states:
                     host_has_issues = True
                     found = True
+
             if host_has_issues:
                 print(f"{key}:")
                 for hkey, hvalue in value.items():
-                    if hvalue in (4, 8, 16):
-                        print(f"    {conditions[hvalue]} for service: {hkey}")
+                    if hvalue in issue_states:
+                        print(f"    {issue_states[hvalue]} for service: {hkey}")
+
         if not found:
             print("🎉 No service issues found!")
 
-    def show_host_services(self, host, service=None, show_output=False, output_filter=0, output_format="text"):
+    def _print_service_results(
+        self, results, output_format, show_output, header_text, secondary_col_key
+    ):
+        """Helper method to format and print service results consistently."""
+        if output_format == "json":
+            print(json.dumps(results, indent=2))
+        elif output_format == "csv":
+            writer = csv.DictWriter(
+                sys.stdout, fieldnames=["host", "service", "status_code", "status"]
+            )
+            writer.writeheader()
+            writer.writerows(
+                [
+                    {k: r[k] for k in ["host", "service", "status_code", "status"]}
+                    for r in results
+                ]
+            )
+        else:
+            print(f"\n--- {header_text} ---")
+            for r in results:
+                extended_out = (
+                    f"\n{'-' * 70}\n{r.get('plugin_output', '')}\n{r.get('long_plugin_output', '')}\n"
+                    if show_output
+                    else ""
+                )
+                # Removed the :>54 padding on the secondary column so it aligns naturally to the left
+                print(
+                    f"{'-' * 70}\n{r['status']:<12} | {r[secondary_col_key]}{extended_out}".strip()
+                )
+            print("-" * 70)
+
+    def show_host_services(
+        self,
+        host,
+        service=None,
+        show_output=False,
+        output_filter=None,
+        output_format="text",
+    ):
         """Displays services for a specific host, optionally filtered by a specific service."""
         params = {"query": "servicelist", "hostname": host, "details": "true"}
         response = self._get_json(params)
@@ -297,66 +342,54 @@ class MozzoNagiosClient:
             8: "❓ UNKNOWN",
             16: "❌ CRITICAL",
         }
+        filter_map = {"PENDING": 1, "OK": 2, "WARNING": 4, "UNKNOWN": 8, "CRITICAL": 16}
+        target_status = filter_map.get(output_filter.upper()) if output_filter else None
 
         results = []
         for svc_name, details in services.items():
-            # If a specific service is requested, skip everything else
             if service and svc_name != service:
                 continue
 
             status_code = details.get("status")
-            status_text = status_map.get(status_code, f"[{status_code}]")
-            if (output_filter > 0 and output_filter == status_code) or output_filter == 0:
-                results.append(
-                    {
-                        "host": host,
-                        "service": svc_name,
-                        "status_code": status_code,
-                        "status": status_text,
-                        "plugin_output": details.get("plugin_output"),
-                        "long_plugin_output": details.get("long_plugin_output"),
-                    }
-                )
 
-        if not results and service:
-            if output_filter > 0:
-                print(
-                    f"⚠️  Service '{service}' not found on host '{host}' for specified filter.", file=sys.stderr
-                )
-            else:
-                print(
-                    f"⚠️  Service '{service}' not found on host '{host}'.", file=sys.stderr
-                )
+            if target_status and status_code != target_status:
+                continue
+
+            status_text = status_map.get(status_code, f"[{status_code}]")
+            results.append(
+                {
+                    "host": host,
+                    "service": svc_name,
+                    "status_code": status_code,
+                    "status": status_text,
+                    "plugin_output": details.get("plugin_output", ""),
+                    "long_plugin_output": details.get("long_plugin_output", ""),
+                }
+            )
+
+        if not results:
+            msg = f" for specified filter '{output_filter}'" if output_filter else ""
+            print(
+                f"⚠️  Service '{service}' not found on host '{host}'{msg}.",
+                file=sys.stderr,
+            )
             return
 
-        if output_format == "json":
-            print(json.dumps(results, indent=2))
-        elif output_format == "csv":
-            writer = csv.DictWriter(
-                sys.stdout, fieldnames=["host", "service", "status_code", "status"]
-            )
-            writer.writeheader()
-            writer.writerows(results)
-        else:
-            if service:
-                print(f"\n--- Monitored Service: '{service}' on '{host}' ---")
-            else:
-                print(f"\n--- Monitored Services for Host: '{host}' ---")
+        header = (
+            f"Monitored Service: '{service}' on '{host}'"
+            if service
+            else f"Monitored Services for Host: '{host}'"
+        )
+        self._print_service_results(
+            results, output_format, show_output, header, secondary_col_key="service"
+        )
 
-            for r in results:
-                print("------------------------------------")
-                print(f"{r['status']:<12} | {r['service']:>20}")
-                if show_output:
-                    print("------------------------------------")
-                    print(r['plugin_output'])
-                    print(r['long_plugin_output'])
-                    print("")
-            print("------------------------------------")
-
-    def show_single_service(self, service=None, show_output=False, output_filter=0, output_format="text"):
+    def show_single_service(
+        self, service=None, show_output=False, output_filter=None, output_format="text"
+    ):
         """Displays a specific service, across all hosts."""
-        if service is None:
-            print("⚠️  No service specified.  We should never be here.", file=sys.stderr)
+        if not service:
+            print("⚠️  No service specified. We should never be here.", file=sys.stderr)
             return
 
         params = {"query": "servicelist", "details": "true"}
@@ -374,55 +407,45 @@ class MozzoNagiosClient:
             8: "❓ UNKNOWN",
             16: "❌ CRITICAL",
         }
+        filter_map = {"PENDING": 1, "OK": 2, "WARNING": 4, "UNKNOWN": 8, "CRITICAL": 16}
+        target_status = filter_map.get(output_filter.upper()) if output_filter else None
 
         results = []
         for system_name, details in services.items():
             if service in details:
-                status_code = details.get(service).get("status")
-                status_text = status_map.get(status_code, f"[{status_code}]")
-                if (output_filter > 0 and output_filter == status_code) or output_filter == 0:
-                    results.append(
-                        {
-                            "host": system_name,
-                            "service": service,
-                            "status_code": status_code,
-                            "status": status_text,
-                            "plugin_output": details.get(service).get("plugin_output"),
-                            "long_plugin_output": details.get(service).get("long_plugin_output"),
-                        }
-                    )
+                svc_details = details[service]
+                status_code = svc_details.get("status")
 
-        if not results and service:
-            # it would not make sense to be here ...
-            if output_filter > 0:
-                print(
-                    f"⚠️  No results found for service '{service}' using the specified filter.", file=sys.stderr
+                if target_status and status_code != target_status:
+                    continue
+
+                status_text = status_map.get(status_code, f"[{status_code}]")
+                results.append(
+                    {
+                        "host": system_name,
+                        "service": service,
+                        "status_code": status_code,
+                        "status": status_text,
+                        "plugin_output": svc_details.get("plugin_output", ""),
+                        "long_plugin_output": svc_details.get("long_plugin_output", ""),
+                    }
                 )
-            else:
-                print(
-                    f"⚠️  No results found for service '{service}'.", file=sys.stderr
-                )
+
+        if not results:
+            msg = (
+                f" using the specified filter '{output_filter}'"
+                if output_filter
+                else ""
+            )
+            print(
+                f"⚠️  No results found for service '{service}'{msg}.", file=sys.stderr
+            )
             return
 
-        if output_format == "json":
-            print(json.dumps(results, indent=2))
-        elif output_format == "csv":
-            writer = csv.DictWriter(
-                sys.stdout, fieldnames=["host", "service", "status_code", "status"]
-            )
-            writer.writeheader()
-            writer.writerows(results)
-        else:
-            print(f"\n--- Monitored Service: '{service}' ---")
-            for r in results:
-                print("-" * 70)
-                print(f"{r['status']:<10} | {r['host']:>55}")
-                if show_output:
-                    print("-" * 70)
-                    print(r['plugin_output'])
-                    print(r['long_plugin_output'])
-                    print("")
-            print("-" * 70)
+        header = f"Monitored Service: '{service}'"
+        self._print_service_results(
+            results, output_format, show_output, header, secondary_col_key="host"
+        )
 
     def show_service_uptime(self, host, service, days=365, output_format="text"):
         """Displays the current uptime duration and dynamic availability report."""
@@ -772,13 +795,17 @@ def main():
         "--enable-alerts", action="store_true", help="Enable notifications"
     )
     parser.add_argument(
-        "--show-output", default=False, action="store_true", help="Show check output; only used with --service"
+        "--show-output",
+        default=False,
+        action="store_true",
+        help="Show check output; only used with --service",
     )
     parser.add_argument(
         "--output-filter",
-        type=int,
-        default=0,
-        help="Limit --show-output results (1 = PENDING; 2 = OK; 4 = WARNING; 8 = UNKNOWN; 16 = CRITICAL)",
+        type=str.upper,
+        choices=["PENDING", "OK", "WARNING", "UNKNOWN", "CRITICAL"],
+        default=None,
+        help="Limit --show-output results by status (e.g., OK, CRITICAL)",
     )
 
     args = parser.parse_args()
@@ -797,9 +824,17 @@ def main():
             else:
                 client.show_host_uptime(args.host, args.days, args.format)
         elif args.host:
-            client.show_host_services(args.host, args.service, args.show_output, args.output_filter, args.format)
+            client.show_host_services(
+                args.host,
+                args.service,
+                args.show_output,
+                args.output_filter,
+                args.format,
+            )
         elif args.service:
-            client.show_single_service(args.service, args.show_output, args.output_filter, args.format)
+            client.show_single_service(
+                args.service, args.show_output, args.output_filter, args.format
+            )
         else:
             client.show_status()
     elif args.disable_alerts:
