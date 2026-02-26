@@ -87,7 +87,7 @@ vim ~/.config/mozzo/config.yml
 Your `config.yml` needs the following structure:
 
 ```yaml
-nagios_server: [https://nagios.example.com](https://nagios.example.com)
+nagios_server: https://nagios.example.com
 nagios_cgi_path: /nagios/cgi-bin
 nagios_username: nagiosadmin
 nagios_password: mysecurepassword
