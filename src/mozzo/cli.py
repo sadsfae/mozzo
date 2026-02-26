@@ -280,8 +280,8 @@ class MozzoNagiosClient:
         if not found:
             print("🎉 No service issues found!")
 
-    def show_host_services(self, host, output_format="text"):
-        """Displays all services for a specific host with their current status."""
+    def show_host_services(self, host, service=None, output_format="text"):
+        """Displays services for a specific host, optionally filtered by a specific service."""
         params = {"query": "servicelist", "hostname": host, "details": "true"}
         response = self._get_json(params)
         services = response.get("data", {}).get("servicelist", {}).get(host, {})
@@ -300,6 +300,10 @@ class MozzoNagiosClient:
 
         results = []
         for svc_name, details in services.items():
+            # If a specific service is requested, skip everything else
+            if service and svc_name != service:
+                continue
+
             status_code = details.get("status")
             status_text = status_map.get(status_code, f"[{status_code}]")
             results.append(
@@ -311,6 +315,12 @@ class MozzoNagiosClient:
                 }
             )
 
+        if not results and service:
+            print(
+                f"⚠️  Service '{service}' not found on host '{host}'.", file=sys.stderr
+            )
+            return
+
         if output_format == "json":
             print(json.dumps(results, indent=2))
         elif output_format == "csv":
@@ -320,7 +330,11 @@ class MozzoNagiosClient:
             writer.writeheader()
             writer.writerows(results)
         else:
-            print(f"\n--- Monitored Services for Host: '{host}' ---")
+            if service:
+                print(f"\n--- Monitored Service: '{service}' on '{host}' ---")
+            else:
+                print(f"\n--- Monitored Services for Host: '{host}' ---")
+
             for r in results:
                 print(f"{r['status']:<12} | {r['service']}")
 
@@ -688,7 +702,7 @@ def main():
             else:
                 client.show_host_uptime(args.host, args.days, args.format)
         elif args.host:
-            client.show_host_services(args.host, args.format)
+            client.show_host_services(args.host, args.service, args.format)
         else:
             client.show_status()
     elif args.disable_alerts:
