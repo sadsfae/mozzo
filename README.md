@@ -42,7 +42,7 @@ Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using 
 You can clone the repository and run the script directly:
 
 ```bash
-git clone [https://github.com/sadsfae/mozzo.git](https://github.com/sadsfae/mozzo.git)
+git clone https://github.com/sadsfae/mozzo.git
 cd mozzo
 chmod +x mozzo.py
 ./mozzo.py --help
@@ -53,7 +53,7 @@ chmod +x mozzo.py
 Install globally or in a virtual environment to make the `mozzo` command available anywhere:
 
 ```bash
-git clone [https://github.com/sadsfae/mozzo.git](https://github.com/sadsfae/mozzo.git)
+git clone https://github.com/sadsfae/mozzo.git
 cd mozzo
 pip install .
 mozzo --help
@@ -80,7 +80,7 @@ Mozzo requires a configuration file named `config.yml`. It will search for this 
 
 ```bash
 mkdir -p ~/.config/mozzo
-curl -s -o ~/.config/mozzo/config.yml [https://raw.githubusercontent.com/sadsfae/mozzo/refs/heads/main/config.yml](https://raw.githubusercontent.com/sadsfae/mozzo/refs/heads/main/config.yml)
+curl -s -o ~/.config/mozzo/config.yml https://raw.githubusercontent.com/sadsfae/mozzo/refs/heads/main/config.yml
 vim ~/.config/mozzo/config.yml
 ```
 
@@ -196,5 +196,5 @@ mozzo --unhandled | grep -E -i "critical|warning" | while read -r level host arr
 
 ## Contributing
 
-- Please open pull requests against the [development](https://github.com/sadsfae/mozzo/tree/development) branch
-- I maintain an Ansible playbook to [install Nagios Core here](https://github.com/sadsfae/ansible-nagios)
+- Please open pull requests against the [development](https://github.com/sadsfae/mozzo/tree/development) branch.
+- I maintain an Ansible playbook to [install Nagios Core here](https://github.com/sadsfae/ansible-nagios) and clients.
