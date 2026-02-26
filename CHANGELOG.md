@@ -1,6 +1,33 @@
 # CHANGELOG
 
 
+## v0.4.0 (2026-02-26)
+
+### Chores
+
+- Add mass ack one-liner to docs
+  ([`213aa83`](https://github.com/sadsfae/mozzo/commit/213aa83e500a7598eebe1ce3900d25c12f8e3bea))
+
+- Clean up debug comments
+  ([`61c771a`](https://github.com/sadsfae/mozzo/commit/61c771a46dbc03807b3e296dd6c513c16b140149))
+
+- Readme typo
+  ([`42d1404`](https://github.com/sadsfae/mozzo/commit/42d140453815e749556e5e05374dd3699c6101fe))
+
+- Readme update
+  ([`b847437`](https://github.com/sadsfae/mozzo/commit/b8474374f3d8fd41590fd99bf32d645ddc3c282f))
+
+### Features
+
+- Add uptime and service reporting.
+  ([`6e598ea`](https://github.com/sadsfae/mozzo/commit/6e598ea71a02cf6a8ce01534232550f73c4354e1))
+
+* Add ability to query nagios archive CGI for host and service uptime. * Add ability to export
+  format to JSON or CSV
+
+fixes: https://github.com/sadsfae/mozzo/issues/23
+
+
 ## v0.3.0 (2026-02-25)
 
 ### Features
