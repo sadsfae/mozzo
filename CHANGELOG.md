@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.4.1 (2026-02-26)
+
+### Bug Fixes
+
+- Individual service status not working
+  ([`460c097`](https://github.com/sadsfae/mozzo/commit/460c09708b17e6d59e9ac5860f8e2ddb2afbf504))
+
+### Chores
+
+- Update docs
+  ([`160b172`](https://github.com/sadsfae/mozzo/commit/160b172c7e3abe20db834fa67c3a317c7e420596))
+
+
 ## v0.4.0 (2026-02-26)
 
 ### Chores
