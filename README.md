@@ -38,6 +38,9 @@ Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using 
 - [Service Reporting and Uptime](#service-reporting-and-uptime)
   - [Listing all Services by Host](#listing-all-services-by-host)
   - [Listing Service Details by Host](#listing-service-details-by-host)
+  - [Listing Service Details on All Hosts](#listing-service-details-on-all-hosts)
+  - [Listing Service Details with Output](#listing-service-details-with-output)
+  - [Listing Service Details with Filter](#listing-service-details-with-filter)
   - [Uptime Reporting](#uptime-reporting)
     - [Report Uptime by Service](#report-uptime-by-service)
     - [Report Uptime by Host](#report-uptime-by-host)
@@ -217,6 +220,50 @@ mozzo --status --host host01.example.com
 ```bash
 mozzo --status --host host01.example.com --service "DNS"
 ```
+
+### Listing Service Details on All Hosts
+
+```bash
+mozzo --status --service "DNS"
+```
+
+### Listing Service Details with Output
+
+To show DNS results for all hosts that have the service:
+
+```bash
+mozzo --status --service "DNS" --show-output
+```
+
+To show DNS results for a specific host that has the service:
+
+```bash
+mozzo --status --host host01.example.com --service "DNS" --show-output
+```
+
+### Listing Service Details with Filter
+
+| Value | Status    | Meaning    |
+|-------|-----------|------------|
+| 1     | PENDING   | Pending    |
+| 2     | OK        | OK / Normal|
+| 4     | WARNING   | Warning    |
+| 8     | UNKNOWN   | Unknown    |
+| 16    | CRITICAL  | Critical   |
+
+To show DNS results for all hosts that have the service in CRITICAL state:
+
+```bash
+mozzo --status --service "DNS" --show-output --output-filter 16
+```
+
+To show DNS results for a specific host that has the service in CRITICAL state:
+
+```bash
+mozzo --status --host host01.example.com --service "DNS" --show-output --output-filter 16
+```
+
+You can combine `--show-output` with `--output-filter`
 
 ### Uptime Reporting
 
