@@ -376,7 +376,6 @@ class MozzoNagiosClient:
         start_dt = now_dt - datetime.timedelta(days=days)
         archive_url = f"{self.server}/{self.cgi_path}/archivejson.cgi"
 
-        # FIXED: Added the 's' to 'assumestatesduringnagiosdowntime'
         arch_params = {
             "query": "availability",
             "availabilityobjecttype": "services",
@@ -508,7 +507,6 @@ class MozzoNagiosClient:
         start_dt = now_dt - datetime.timedelta(days=days)
         archive_url = f"{self.server}/{self.cgi_path}/archivejson.cgi"
 
-        # FIXED: Brought back the 's' in 'assumestatesduringnagiosdowntime'
         arch_params = {
             "query": "availability",
             "availabilityobjecttype": "hosts",
@@ -537,7 +535,6 @@ class MozzoNagiosClient:
                 else:
                     avail = arch_data.get("data", {}).get("host", {})
 
-                    # FIXED: Nagios uses "name" for hosts, not "host_name" in this payload
                     if avail and (
                         avail.get("name") == host or avail.get("host_name") == host
                     ):
