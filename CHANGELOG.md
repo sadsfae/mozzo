@@ -1,6 +1,55 @@
 # CHANGELOG
 
 
+## v0.5.0 (2026-02-27)
+
+### Features
+
+- Add features for status
+  ([`53b37ca`](https://github.com/sadsfae/mozzo/commit/53b37cac4a0f098ccf2a943d07f4533c008bb4c2))
+
+Allow for looking for a specific service across all hosts. e.g.
+
+To list the status of DNS across all hosts:
+
+mozzo --status --service "DNS"
+
+You can also filter the results based on plugin status: 1 = PENDING; 2 = OK; 4 = WARNING; 8 =
+  UNKNOWN; 16 = CRITICAL
+
+mozzo --status --service "DNS" --filter 16
+
+You can also directly see the results of the plugin output:
+
+mozzo --status --service "DNS" --host foo.example.com --show-output
+
+- Add features to list service across hosts
+  ([`f984322`](https://github.com/sadsfae/mozzo/commit/f98432258f4913b8c992a161666673f023df6df7))
+
+Allow for looking for a specific service across all hosts. e.g.
+
+To list the status of DNS across all hosts:
+
+mozzo --status --service "DNS"
+
+You can also filter the results based on plugin status: 1 = PENDING; 2 = OK; 4 = WARNING; 8 =
+  UNKNOWN; 16 = CRITICAL
+
+mozzo --status --service "DNS" --filter 16
+
+You can also directly see the results of the plugin output:
+
+mozzo --status --service "DNS" --host foo.example.com --show-output
+
+- Refactoring and add plugin output.
+  ([`d4da3d1`](https://github.com/sadsfae/mozzo/commit/d4da3d1f39ad3705cff563f24cf19a1c85a203fe))
+
+* refactor --output-filter to use a data structure filter_map.get() * use private helper method so
+  any new changes to things like output columns only need to be updated in one place via
+  _def_print_service_results * make --output-filter case insensitive * use fstrings to remove number
+  of print lines
+
+
 ## v0.4.1 (2026-02-26)
 
 ### Bug Fixes
