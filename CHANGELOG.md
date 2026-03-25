@@ -1,6 +1,24 @@
 # CHANGELOG
 
 
+## v0.6.0 (2026-03-25)
+
+### Chores
+
+- Restore code comments and python doc
+  ([`1729199`](https://github.com/sadsfae/mozzo/commit/1729199e6c852ebdb32b578ddd482ac179d73fca))
+
+### Features
+
+- Add --days to --set-downtime, support float.
+  ([`9947e9c`](https://github.com/sadsfae/mozzo/commit/9947e9cd5d0174bafe4bbd3d89c3a591ad85d437))
+
+fixes: https://github.com/sadsfae/mozzo/issues/30
+
+* Made --days a float * Support --days with --set-downtime e.g. --days 0.5 --days 2 * Add value
+  "default_reporting_days" to set default uptime reports if no argument is passed.
+
+
 ## v0.5.0 (2026-02-27)
 
 ### Features
