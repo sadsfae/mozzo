@@ -4,6 +4,7 @@ nagios_server: https://nagios.example.com
 nagios_cgi_path: /nagios/cgi-bin
 nagios_username: nagiosadmin
 nagios_password: mysecurepassword
-default_downtime: 120  # in minutes
+default_reporting_days: 365 # in days
+default_downtime: 120 # in minutes
 verify_ssl: false
 date_format: "%m-%d-%Y %H:%M:%S"
