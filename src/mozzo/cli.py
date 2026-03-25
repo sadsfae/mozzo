@@ -8,6 +8,12 @@ import os
 import json
 import csv
 
+# Attempt to import version from the package, fallback if run as a script
+try:
+    from mozzo import __version__
+except ImportError:
+    __version__ = "0.6.0"
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -755,6 +761,9 @@ class MozzoNagiosClient:
 def main():
     parser = argparse.ArgumentParser(
         description="Mozzo - Nagios Core command line assistant"
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument("-c", "--config", type=str, help="Path to specific config.yml")
     parser.add_argument(
