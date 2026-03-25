@@ -8,11 +8,20 @@ import os
 import json
 import csv
 
-# Attempt to import version from the package, fallback if run as a script
-try:
-    from mozzo import __version__
-except ImportError:
-    __version__ = "0.6.0"
+
+def _get_version():
+    """Reads the version from __init__.py without importing the package."""
+    base_path = os.path.dirname(__file__)
+    init_path = os.path.join(base_path, "__init__.py")
+    if os.path.exists(init_path):
+        with open(init_path, "r") as f:
+            for line in f:
+                if line.startswith("__version__"):
+                    return line.split("=")[1].strip().strip('"').strip("'")
+    return "UNKNOWN"
+
+
+__version__ = _get_version()
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -22,14 +31,14 @@ class MozzoNagiosClient:
         config_file = self._find_config(config_path)
         if not config_file:
             print(
-                "❌ Could not find config.yml.\nPlease ensure config.yml exists in the current directory."
+                "â�� Could not find config.yml.\nPlease ensure config.yml exists in the current directory."
             )
             sys.exit(1)
         try:
             with open(config_file, "r") as f:
                 self.config = yaml.safe_load(f)
         except Exception as e:
-            print(f"❌ Error loading {config_file}: {e}")
+            print(f"â�� Error loading {config_file}: {e}")
             sys.exit(1)
 
         self.server = self.config.get("nagios_server", "").rstrip("/")
@@ -75,13 +84,13 @@ class MozzoNagiosClient:
             )
             response.raise_for_status()
             if "successfully submitted" in response.text:
-                print("✅ Command successfully submitted to Nagios.")
+                print("â�� Command successfully submitted to Nagios.")
             else:
                 print(
-                    "⚠️ Command sent, but success message not found. Check permissions."
+                    "â� ï¸� Command sent, but success message not found. Check permissions."
                 )
         except requests.exceptions.RequestException as e:
-            print(f"❌ HTTP Error submitting command: {e}")
+            print(f"â�� HTTP Error submitting command: {e}")
 
     def _get_json(self, params):
         try:
@@ -91,7 +100,7 @@ class MozzoNagiosClient:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"❌ HTTP Error fetching data: {e}")
+            print(f"â�� HTTP Error fetching data: {e}")
             sys.exit(1)
 
     def _get_downtime_windows(self):
@@ -269,10 +278,10 @@ class MozzoNagiosClient:
                     )
 
         if not found:
-            print("🎉 No unhandled service alerts found!")
+            print("ð��� No unhandled service alerts found!")
 
     def show_service_issues(self, host=None):
-        issue_states = {4: "⚠️  WARNING", 8: "❓ UNKNOWN", 16: "❌ CRITICAL"}
+        issue_states = {4: "â� ï¸�  WARNING", 8: "â�� UNKNOWN", 16: "â�� CRITICAL"}
         print("\n--- List Service Issues ---")
 
         services = (
@@ -285,7 +294,7 @@ class MozzoNagiosClient:
             if host in services:
                 services = {host: services[host]}
             else:
-                print(f"⚠️  {host} not found.")
+                print(f"â� ï¸�  {host} not found.")
                 return
 
         found = False
@@ -303,7 +312,7 @@ class MozzoNagiosClient:
                         print(f"    {issue_states[hvalue]} for service: {hkey}")
 
         if not found:
-            print("🎉 No service issues found!")
+            print("ð��� No service issues found!")
 
     def _print_service_results(
         self, results, output_format, show_output, header_text, secondary_col_key
@@ -350,15 +359,15 @@ class MozzoNagiosClient:
         services = response.get("data", {}).get("servicelist", {}).get(host, {})
 
         if not services:
-            print(f"⚠️  No services found for host '{host}'.", file=sys.stderr)
+            print(f"â� ï¸�  No services found for host '{host}'.", file=sys.stderr)
             return
 
         status_map = {
-            1: "⏳ PENDING",
-            2: "✅ OK",
-            4: "⚠️  WARNING",
-            8: "❓ UNKNOWN",
-            16: "❌ CRITICAL",
+            1: "â�³ PENDING",
+            2: "â�� OK",
+            4: "â� ï¸�  WARNING",
+            8: "â�� UNKNOWN",
+            16: "â�� CRITICAL",
         }
         filter_map = {"PENDING": 1, "OK": 2, "WARNING": 4, "UNKNOWN": 8, "CRITICAL": 16}
         target_status = filter_map.get(output_filter.upper()) if output_filter else None
@@ -388,7 +397,7 @@ class MozzoNagiosClient:
         if not results:
             msg = f" for specified filter '{output_filter}'" if output_filter else ""
             print(
-                f"⚠️  Service '{service}' not found on host '{host}'{msg}.",
+                f"â� ï¸�  Service '{service}' not found on host '{host}'{msg}.",
                 file=sys.stderr,
             )
             return
@@ -407,7 +416,10 @@ class MozzoNagiosClient:
     ):
         """Displays a specific service, across all hosts."""
         if not service:
-            print("⚠️  No service specified. We should never be here.", file=sys.stderr)
+            print(
+                "â� ï¸�  No service specified. We should never be here.",
+                file=sys.stderr,
+            )
             return
 
         params = {"query": "servicelist", "details": "true"}
@@ -415,15 +427,15 @@ class MozzoNagiosClient:
         services = response.get("data", {}).get("servicelist", {})
 
         if not services:
-            print("⚠️  No services found.", file=sys.stderr)
+            print("â� ï¸�  No services found.", file=sys.stderr)
             return
 
         status_map = {
-            1: "⏳ PENDING",
-            2: "✅ OK",
-            4: "⚠️  WARNING ",
-            8: "❓ UNKNOWN",
-            16: "❌ CRITICAL",
+            1: "â�³ PENDING",
+            2: "â�� OK",
+            4: "â� ï¸�  WARNING ",
+            8: "â�� UNKNOWN",
+            16: "â�� CRITICAL",
         }
         filter_map = {"PENDING": 1, "OK": 2, "WARNING": 4, "UNKNOWN": 8, "CRITICAL": 16}
         target_status = filter_map.get(output_filter.upper()) if output_filter else None
@@ -456,7 +468,8 @@ class MozzoNagiosClient:
                 else ""
             )
             print(
-                f"⚠️  No results found for service '{service}'{msg}.", file=sys.stderr
+                f"â� ï¸�  No results found for service '{service}'{msg}.",
+                file=sys.stderr,
             )
             return
 
@@ -473,16 +486,17 @@ class MozzoNagiosClient:
 
         if not svc_data:
             print(
-                f"⚠️  Service '{service}' on host '{host}' not found.", file=sys.stderr
+                f"â� ï¸�  Service '{service}' on host '{host}' not found.",
+                file=sys.stderr,
             )
             return
 
         status_map = {
-            1: "⏳ PENDING",
-            2: "✅ OK",
-            4: "⚠️  WARNING",
-            8: "❓ UNKNOWN",
-            16: "❌ CRITICAL",
+            1: "â�³ PENDING",
+            2: "â�� OK",
+            4: "â� ï¸�  WARNING",
+            8: "â�� UNKNOWN",
+            16: "â�� CRITICAL",
         }
         status_code = svc_data.get("status")
         status_text = status_map.get(status_code, f"CODE_{status_code}")
@@ -571,7 +585,7 @@ class MozzoNagiosClient:
         except requests.exceptions.RequestException as e:
             if output_format == "text":
                 print(
-                    f"⚠️  Could not retrieve availability report via archivejson: {e}",
+                    f"â� ï¸�  Could not retrieve availability report via archivejson: {e}",
                     file=sys.stderr,
                 )
 
@@ -613,10 +627,15 @@ class MozzoNagiosClient:
         host_data = response.get("data", {}).get("host", {})
 
         if not host_data:
-            print(f"⚠️  Host '{host}' not found.", file=sys.stderr)
+            print(f"â� ï¸�  Host '{host}' not found.", file=sys.stderr)
             return
 
-        status_map = {0: "⏳ PENDING", 2: "✅ UP", 4: "❌ DOWN", 8: "❓ UNREACHABLE"}
+        status_map = {
+            0: "â�³ PENDING",
+            2: "â�� UP",
+            4: "â�� DOWN",
+            8: "â�� UNREACHABLE",
+        }
         status_code = host_data.get("status")
         status_text = status_map.get(status_code, f"CODE_{status_code}")
         plugin_output = host_data.get("plugin_output", "N/A")
@@ -704,7 +723,7 @@ class MozzoNagiosClient:
         except requests.exceptions.RequestException as e:
             if output_format == "text":
                 print(
-                    f"⚠️  Could not retrieve availability report via archivejson: {e}",
+                    f"â� ï¸�  Could not retrieve availability report via archivejson: {e}",
                     file=sys.stderr,
                 )
 
@@ -754,13 +773,13 @@ class MozzoNagiosClient:
             "Event Handlers": prog.get("enable_event_handlers"),
         }
         for key, val in status_map.items():
-            print(f"{key:<25}: {'✅ ENABLED' if val else '❌ DISABLED'}")
+            print(f"{key:<25}: {'â�� ENABLED' if val else 'â�� DISABLED'}")
         print()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Mozzo - Nagios Core command line assistant"
+        prog="mozzo", description="Mozzo - Nagios Core command line assistant"
     )
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
