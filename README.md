@@ -104,6 +104,7 @@ nagios_cgi_path: /nagios/cgi-bin
 nagios_username: nagiosadmin
 nagios_password: mysecurepassword
 default_downtime: 120 # in minutes
+default_reporting_days: 365 # in days
 verify_ssl: false
 date_format: "%m-%d-%Y %H:%M:%S"
 ```
@@ -143,10 +144,14 @@ mozzo --ack --host host01.example.com --service "HTTP"
 mozzo --ack --host host01.example.com --all-services
 ```
 
+> [!TIP]
+> You can pass `--days` including a float value for downtime, otherwise the value in `config.yml` is used.
+
 ### Set Downtime for a Specific Host
 
 ```bash
 mozzo --set-downtime --host host01.example.com
+mozzo --set-downtime --host host01.example.com --days 0.5
 ```
 
 ### Set Downtime for a Host and all its Services
@@ -159,6 +164,7 @@ mozzo --set-downtime --host host01.example.com --all-services
 
 ```bash
 mozzo --set-downtime --host host01.example.com --service "HTTP"
+mozzo --set-downtime --host host01.example.com --service "HTTP" --days 2
 ```
 
 ### Disable Alerting for a Specific Service
@@ -272,7 +278,9 @@ mozzo --status --service "DNS" --output-filter CRITICAL --show-output
 ### Uptime Reporting
 
 > [!NOTE]
-> Default uptime reporting is 365 days if `--days` is not specified.
+> Default uptime reporting uses `default_reporting_days` from `config.yml`
+>
+> Default is 365 days unless you specify `--days`
 
 #### Report Uptime by Service
 

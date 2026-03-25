@@ -12,7 +12,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class MozzoNagiosClient:
-    def __init__(self, config_path=None, message=None):
+    def __init__(self, config_path=None, message=None, days=None):
         config_file = self._find_config(config_path)
         if not config_file:
             print(
@@ -33,6 +33,7 @@ class MozzoNagiosClient:
             self.config.get("nagios_password"),
         )
         self.downtime_mins = self.config.get("default_downtime", 120)
+        self.report_days = self.config.get("default_reporting_days", 365)
         self.verify_ssl = self.config.get("verify_ssl", True)
         self.date_format = self.config.get("date_format", "%m-%d-%Y %H:%M:%S")
         self.cmd_url = f"{self.server}/{self.cgi_path}/cmd.cgi"
@@ -40,6 +41,7 @@ class MozzoNagiosClient:
 
         # Set the custom message or fallback to default
         self.message = message if message else "Action issued by Mozzo CLI"
+        self.days = days
 
     def _find_config(self, provided_path):
         if provided_path and os.path.exists(provided_path):
@@ -88,7 +90,10 @@ class MozzoNagiosClient:
 
     def _get_downtime_windows(self):
         now = datetime.datetime.now()
-        end = now + datetime.timedelta(minutes=self.downtime_mins)
+        if self.days is not None:
+            end = now + datetime.timedelta(days=self.days)
+        else:
+            end = now + datetime.timedelta(minutes=self.downtime_mins)
         return now.strftime(self.date_format), end.strftime(self.date_format)
 
     def ack_service(self, host, service):
@@ -133,9 +138,10 @@ class MozzoNagiosClient:
 
     def set_downtime_service(self, host, service):
         start, end = self._get_downtime_windows()
-        print(
-            f"Setting {self.downtime_mins}m downtime for service '{service}' on '{host}'..."
+        duration_str = (
+            f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
         )
+        print(f"Setting {duration_str} downtime for service '{service}' on '{host}'...")
         payload = {
             "cmd_typ": 56,
             "cmd_mod": 2,
@@ -149,7 +155,10 @@ class MozzoNagiosClient:
 
     def set_downtime_host(self, host):
         start, end = self._get_downtime_windows()
-        print(f"Setting {self.downtime_mins}m downtime for host '{host}'...")
+        duration_str = (
+            f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
+        )
+        print(f"Setting {duration_str} downtime for host '{host}'...")
         payload = {
             "cmd_typ": 55,
             "cmd_mod": 2,
@@ -162,8 +171,11 @@ class MozzoNagiosClient:
 
     def set_downtime_all(self, host):
         start, end = self._get_downtime_windows()
+        duration_str = (
+            f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
+        )
         print(
-            f"Setting {self.downtime_mins}m downtime for host '{host}' AND all its services..."
+            f"Setting {duration_str} downtime for host '{host}' AND all its services..."
         )
         payload = {
             "cmd_typ": 86,
@@ -777,9 +789,9 @@ def main():
     )
     parser.add_argument(
         "--days",
-        type=int,
-        default=365,
-        help="Number of days for availability report (default: 365)",
+        type=float,
+        default=None,
+        help="Number of days for availability report or downtime (e.g. 0.5 for 12 hours)",
     )
     parser.add_argument(
         "--format",
@@ -809,7 +821,9 @@ def main():
     )
 
     args = parser.parse_args()
-    client = MozzoNagiosClient(config_path=args.config, message=args.message)
+    client = MozzoNagiosClient(
+        config_path=args.config, message=args.message, days=args.days
+    )
 
     if args.unhandled:
         client.show_unhandled()
@@ -817,12 +831,13 @@ def main():
         client.show_service_issues(args.host)
     elif args.status:
         if args.host and args.uptime:
+            uptime_days = args.days if args.days is not None else client.report_days
             if args.service:
                 client.show_service_uptime(
-                    args.host, args.service, args.days, args.format
+                    args.host, args.service, uptime_days, args.format
                 )
             else:
-                client.show_host_uptime(args.host, args.days, args.format)
+                client.show_host_uptime(args.host, uptime_days, args.format)
         elif args.host:
             client.show_host_services(
                 args.host,
