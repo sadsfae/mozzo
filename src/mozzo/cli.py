@@ -302,6 +302,7 @@ class MozzoNagiosClient:
     def _print_service_results(
         self, results, output_format, show_output, header_text, secondary_col_key
     ):
+        """Helper method to format and print service results consistently."""
         if output_format == "json":
             print(json.dumps(results, indent=2))
         elif output_format == "csv":
@@ -323,6 +324,7 @@ class MozzoNagiosClient:
                     if show_output
                     else ""
                 )
+                # Removed the :>54 padding on the secondary column so it aligns naturally to the left
                 print(
                     f"{'-' * 70}\n{r['status']:<12} | {r[secondary_col_key]}{extended_out}".strip()
                 )
@@ -336,6 +338,7 @@ class MozzoNagiosClient:
         output_filter=None,
         output_format="text",
     ):
+        """Displays services for a specific host, optionally filtered by a specific service."""
         params = {"query": "servicelist", "hostname": host, "details": "true"}
         response = self._get_json(params)
         services = response.get("data", {}).get("servicelist", {}).get(host, {})
@@ -396,6 +399,7 @@ class MozzoNagiosClient:
     def show_single_service(
         self, service=None, show_output=False, output_filter=None, output_format="text"
     ):
+        """Displays a specific service, across all hosts."""
         if not service:
             print("⚠️  No service specified. We should never be here.", file=sys.stderr)
             return
@@ -456,6 +460,7 @@ class MozzoNagiosClient:
         )
 
     def show_service_uptime(self, host, service, days=365, output_format="text"):
+        """Displays the current uptime duration and dynamic availability report."""
         params = {"query": "service", "hostname": host, "servicedescription": service}
         response = self._get_json(params)
         svc_data = response.get("data", {}).get("service", {})
@@ -501,6 +506,7 @@ class MozzoNagiosClient:
             "percent_critical": None,
         }
 
+        # Fetch Dynamic Availability Report
         now_dt = datetime.datetime.now()
         start_dt = now_dt - datetime.timedelta(days=days)
         archive_url = f"{self.server}/{self.cgi_path}/archivejson.cgi"
@@ -595,6 +601,7 @@ class MozzoNagiosClient:
                     print(json.dumps(report_data["_debug_raw_dump"], indent=2))
 
     def show_host_uptime(self, host, days=365, output_format="text"):
+        """Displays the current uptime duration and dynamic availability report for a HOST."""
         params = {"query": "host", "hostname": host}
         response = self._get_json(params)
         host_data = response.get("data", {}).get("host", {})
@@ -630,6 +637,7 @@ class MozzoNagiosClient:
             "percent_unreachable": None,
         }
 
+        # Fetch Dynamic Availability Report for HOST
         now_dt = datetime.datetime.now()
         start_dt = now_dt - datetime.timedelta(days=days)
         archive_url = f"{self.server}/{self.cgi_path}/archivejson.cgi"
@@ -656,6 +664,7 @@ class MozzoNagiosClient:
             if arch_resp.status_code == 200:
                 arch_data = arch_resp.json()
 
+                # Check if Nagios threw a parameter error inside a 200 OK wrapper
                 if arch_data.get("result", {}).get("type_code") != 0:
                     report_data["_debug_raw_dump"] = arch_data
                 else:
