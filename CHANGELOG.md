@@ -1,6 +1,58 @@
 # CHANGELOG
 
 
+## v0.7.0 (2026-03-27)
+
+### Chores
+
+- Add --version
+  ([`a223911`](https://github.com/sadsfae/mozzo/commit/a2239110bab3461d2a6caf4b269bae0b4cf758e2))
+
+* It's about time we supported --version * Let's try to do it in a python-package friendly way but
+  fall back if mozzo is run as a script too.
+
+- Add --version method
+  ([`a1bf6e9`](https://github.com/sadsfae/mozzo/commit/a1bf6e918d17b0a99ff1840a9f770186cb393c80))
+
+chore: add small --version method
+
+- Change --version approach
+  ([`f851fa4`](https://github.com/sadsfae/mozzo/commit/f851fa4105ee432e86ebd270be93dd79b6453546))
+
+- Fix emojibake issue with utf8.
+  ([`43f9b89`](https://github.com/sadsfae/mozzo/commit/43f9b8923f8303e5a81502c62535686c93fdefb3))
+
+* This is very important to Kambiz.
+
+- Update example config.yml
+  ([`d7183b9`](https://github.com/sadsfae/mozzo/commit/d7183b991e831adbc0534b06cca15085b0417e41))
+
+* Update config.yml with new default_reporting_days value.
+
+### Features
+
+- Massive performance enhancements
+  ([`df42177`](https://github.com/sadsfae/mozzo/commit/df42177294c4b16c807a74c6f05e344086970fe5))
+
+* Massive speed-ups using lazyloading so we dont need to pull the entire multi-MB CGI JSON response.
+  * First filter at server side for only services in scope for show_single_service and:
+
+--unhandled --service-issues
+
+- Massive speed increase for CGI return.
+  ([`a26e92b`](https://github.com/sadsfae/mozzo/commit/a26e92b5b6b185d74aed592e583f82cdc1787a11))
+
+* Massive speed-ups using lazyloading so we dont need to pull the entire multi-MB CGI JSON response.
+  * First filter at server side for only services in scope for:
+
+--unhandled --service-issues
+
+- Performance fix for show_single_service
+  ([`d8a43fb`](https://github.com/sadsfae/mozzo/commit/d8a43fb8685d700fbd51ca23e6c593c536255507))
+
+* speed ups for show_single_service as well.
+
+
 ## v0.6.0 (2026-03-25)
 
 ### Chores
