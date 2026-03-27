@@ -460,12 +460,18 @@ class MozzoNagiosClient:
             print("⚠️  No service specified. We should never be here.", file=sys.stderr)
             return
 
-        params = {"query": "servicelist", "details": "true"}
+        # Let Nagios filter by service name BEFORE generating the JSON payload
+        params = {
+            "query": "servicelist",
+            "details": "true",
+            "servicedescription": service,
+        }
+
         response = self._get_json(params)
         services = response.get("data", {}).get("servicelist", {})
 
         if not services:
-            print("⚠️  No services found.", file=sys.stderr)
+            print(f"⚠️  No hosts found running service '{service}'.", file=sys.stderr)
             return
 
         status_map = {
@@ -480,6 +486,7 @@ class MozzoNagiosClient:
 
         results = []
         for system_name, details in services.items():
+            # Filtered server-side, 'details' only contains our target service
             if service in details:
                 svc_details = details[service]
                 status_code = svc_details.get("status")
