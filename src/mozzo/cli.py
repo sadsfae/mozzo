@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 import argparse
-import yaml
+import csv
+import datetime
+import json
+import os
+import sys
+
 import requests
 import urllib3
-import datetime
-import sys
-import os
-import json
-import csv
+import yaml
 
 # Force UTF-8 output to prevent emoji Mojibake (e.g. â instead of ❌)
 if hasattr(sys.stdout, "reconfigure"):
@@ -36,7 +37,8 @@ class MozzoNagiosClient:
         config_file = self._find_config(config_path)
         if not config_file:
             print(
-                "❌ Could not find config.yml.\nPlease ensure config.yml exists in the current directory."
+                "❌ Could not find config.yml.\n"
+                "Please ensure config.yml exists in the current directory."
             )
             sys.exit(1)
         try:
@@ -92,7 +94,8 @@ class MozzoNagiosClient:
                 print("✅ Command successfully submitted to Nagios.")
             else:
                 print(
-                    "⚠️ Command sent, but success message not found. Check permissions."
+                    "⚠️ Command sent, but success message not found. "
+                    "Check permissions."
                 )
         except requests.exceptions.RequestException as e:
             print(f"❌ HTTP Error submitting command: {e}")
@@ -161,7 +164,10 @@ class MozzoNagiosClient:
         duration_str = (
             f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
         )
-        print(f"Setting {duration_str} downtime for service '{service}' on '{host}'...")
+        print(
+            f"Setting {duration_str} downtime for service "
+            f"'{service}' on '{host}'..."
+        )
         payload = {
             "cmd_typ": 56,
             "cmd_mod": 2,
@@ -195,7 +201,8 @@ class MozzoNagiosClient:
             f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
         )
         print(
-            f"Setting {duration_str} downtime for host '{host}' AND all its services..."
+            f"Setting {duration_str} downtime for host '{host}' "
+            "AND all its services..."
         )
         payload = {
             "cmd_typ": 86,
@@ -211,40 +218,64 @@ class MozzoNagiosClient:
         if host:
             if all_services:
                 cmd_typ = 28 if enable else 29
-                print(
-                    f"{'Enabling' if enable else 'Disabling'} notifications for all services on '{host}'..."
-                )
+                action = "Enabling" if enable else "Disabling"
+                print(f"{action} notifications for all services on '{host}'...")
                 self._post_cmd({"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host})
             elif service:
                 cmd_typ = 22 if enable else 23
-                print(
-                    f"{'Enabling' if enable else 'Disabling'} notifications for '{service}' on '{host}'..."
-                )
+                action = "Enabling" if enable else "Disabling"
+                print(f"{action} notifications for '{service}' on '{host}'...")
                 self._post_cmd(
-                    {"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host, "service": service}
+                    {
+                        "cmd_typ": cmd_typ,
+                        "cmd_mod": 2,
+                        "host": host,
+                        "service": service,
+                    }
                 )
             else:
                 cmd_typ = 24 if enable else 25
-                print(
-                    f"{'Enabling' if enable else 'Disabling'} notifications for host '{host}'..."
-                )
+                action = "Enabling" if enable else "Disabling"
+                print(f"{action} notifications for host '{host}'...")
                 self._post_cmd({"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host})
         else:
-            print(f"{'Enabling' if enable else 'Disabling'} global notifications...")
+            action = "Enabling" if enable else "Disabling"
+            print(f"{action} global notifications...")
             self._post_cmd({"cmd_typ": 12 if enable else 11, "cmd_mod": 2})
 
     def show_unhandled(self):
         print("\n--- Unhandled Service Alerts ---")
-        hosts = (
-            self._get_json({"query": "hostlist", "details": "true"})
-            .get("data", {})
-            .get("hostlist", {})
-        )
+
+        # 1. Server-Side Filtering: Ask Nagios ONLY for non-OK services.
+        # This cuts the payload from 12,000 services down to just the broken ones.
         services = (
-            self._get_json({"query": "servicelist", "details": "true"})
+            self._get_json(
+                {
+                    "query": "servicelist",
+                    "details": "true",
+                    "servicestatus": "warning+critical+unknown",
+                }
+            )
             .get("data", {})
             .get("servicelist", {})
         )
+
+        if not services:
+            print("🎉 No unhandled service alerts found!")
+            return
+
+        # 2. Extract only the hosts that have problematic services
+        affected_hosts = services.keys()
+
+        # 3. Lazy Loading: Fetch host details ONLY for the affected hosts
+        hosts = {}
+        for host in affected_hosts:
+            host_data = (
+                self._get_json({"query": "host", "hostname": host})
+                .get("data", {})
+                .get("host", {})
+            )
+            hosts[host] = host_data
 
         issue_states = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}
         found = False
@@ -269,6 +300,7 @@ class MozzoNagiosClient:
                     svc_ack = details.get(
                         "problem_has_been_acknowledged"
                     ) or details.get("has_been_acknowledged", False)
+
                     if (
                         not details.get("notifications_enabled", True)
                         or svc_ack
@@ -279,7 +311,8 @@ class MozzoNagiosClient:
                     found = True
                     status_text = issue_states[status_code]
                     print(
-                        f"[{status_text}] {host} -> {svc_name}\n    Output: {details.get('plugin_output')}"
+                        f"[{status_text}] {host} -> {svc_name}\n"
+                        f"    Output: {details.get('plugin_output')}"
                     )
 
         if not found:
@@ -289,38 +322,38 @@ class MozzoNagiosClient:
         issue_states = {4: "⚠️  WARNING", 8: "❓ UNKNOWN", 16: "❌ CRITICAL"}
         print("\n--- List Service Issues ---")
 
-        services = (
-            self._get_json({"query": "servicelist", "details": "false"})
-            .get("data", {})
-            .get("servicelist", {})
-        )
+        # Removed 'servicestatus' to restore acknowledged/silenced issues.
+        # details="false" ensures the payload remains extremely lightweight.
+        params = {"query": "servicelist", "details": "false"}
 
+        # We keep the hostname filter for speed if a specific host is requested
         if host:
-            if host in services:
-                services = {host: services[host]}
-            else:
-                print(f"⚠️  {host} not found.")
-                return
+            params["hostname"] = host
+
+        services = self._get_json(params).get("data", {}).get("servicelist", {})
 
         found = False
-        for key, value in services.items():
+        for current_host, svc_dict in services.items():
             host_has_issues = False
-            for hkey, hvalue in value.items():
-                if hvalue in issue_states:
+            for svc_name, svc_status in svc_dict.items():
+                if svc_status in issue_states:
                     host_has_issues = True
                     found = True
 
             if host_has_issues:
-                print(f"{key}:")
-                for hkey, hvalue in value.items():
-                    if hvalue in issue_states:
-                        print(f"    {issue_states[hvalue]} for service: {hkey}")
+                print(f"{current_host}:")
+                for svc_name, svc_status in svc_dict.items():
+                    if svc_status in issue_states:
+                        print(
+                            f"    {issue_states[svc_status]} "
+                            f"for service: {svc_name}"
+                        )
 
         if not found:
             print("🎉 No service issues found!")
 
     def _print_service_results(
-        self, results, output_format, show_output, header_text, secondary_col_key
+        self, results, output_format, show_output, header_text, secondary_key
     ):
         """Helper method to format and print service results consistently."""
         if output_format == "json":
@@ -340,13 +373,16 @@ class MozzoNagiosClient:
             print(f"\n--- {header_text} ---")
             for r in results:
                 extended_out = (
-                    f"\n{'-' * 70}\n{r.get('plugin_output', '')}\n{r.get('long_plugin_output', '')}\n"
+                    f"\n{'-' * 70}\n{r.get('plugin_output', '')}\n"
+                    f"{r.get('long_plugin_output', '')}\n"
                     if show_output
                     else ""
                 )
-                # Removed the :>54 padding on the secondary column so it aligns naturally to the left
+                # Removed the :>54 padding on the secondary column
+                # so it aligns naturally to the left
                 print(
-                    f"{'-' * 70}\n{r['status']:<12} | {r[secondary_col_key]}{extended_out}".strip()
+                    f"{'-' * 70}\n{r['status']:<12} | "
+                    f"{r[secondary_key]}{extended_out}".strip()
                 )
             print("-" * 70)
 
@@ -358,7 +394,7 @@ class MozzoNagiosClient:
         output_filter=None,
         output_format="text",
     ):
-        """Displays services for a specific host, optionally filtered by a specific service."""
+        """Displays services for a specific host, optionally filtered."""
         params = {"query": "servicelist", "hostname": host, "details": "true"}
         response = self._get_json(params)
         services = response.get("data", {}).get("servicelist", {}).get(host, {})
@@ -413,7 +449,7 @@ class MozzoNagiosClient:
             else f"Monitored Services for Host: '{host}'"
         )
         self._print_service_results(
-            results, output_format, show_output, header, secondary_col_key="service"
+            results, output_format, show_output, header, secondary_key="service"
         )
 
     def show_single_service(
@@ -424,18 +460,24 @@ class MozzoNagiosClient:
             print("⚠️  No service specified. We should never be here.", file=sys.stderr)
             return
 
-        params = {"query": "servicelist", "details": "true"}
+        # Let Nagios filter by service name BEFORE generating the JSON payload
+        params = {
+            "query": "servicelist",
+            "details": "true",
+            "servicedescription": service,
+        }
+
         response = self._get_json(params)
         services = response.get("data", {}).get("servicelist", {})
 
         if not services:
-            print("⚠️  No services found.", file=sys.stderr)
+            print(f"⚠️  No hosts found running service '{service}'.", file=sys.stderr)
             return
 
         status_map = {
             1: "⏳ PENDING",
             2: "✅ OK",
-            4: "⚠️  WARNING ",
+            4: "⚠️  WARNING",
             8: "❓ UNKNOWN",
             16: "❌ CRITICAL",
         }
@@ -444,6 +486,7 @@ class MozzoNagiosClient:
 
         results = []
         for system_name, details in services.items():
+            # Filtered server-side, 'details' only contains our target service
             if service in details:
                 svc_details = details[service]
                 status_code = svc_details.get("status")
@@ -476,7 +519,7 @@ class MozzoNagiosClient:
 
         header = f"Monitored Service: '{service}'"
         self._print_service_results(
-            results, output_format, show_output, header, secondary_col_key="host"
+            results, output_format, show_output, header, secondary_key="host"
         )
 
     def show_service_uptime(self, host, service, days=365, output_format="text"):
@@ -585,7 +628,8 @@ class MozzoNagiosClient:
         except requests.exceptions.RequestException as e:
             if output_format == "text":
                 print(
-                    f"⚠️  Could not retrieve availability report via archivejson: {e}",
+                    f"⚠️  Could not retrieve availability report "
+                    f"via archivejson: {e}",
                     file=sys.stderr,
                 )
 
@@ -612,16 +656,18 @@ class MozzoNagiosClient:
                 print(f"{'CRITICAL':<10} | {report_data['percent_critical']:.3f}%")
             else:
                 print(
-                    f"No historical availability data found for the last {days} days."
+                    f"No historical availability data found for "
+                    f"the last {days} days."
                 )
                 if "_debug_raw_dump" in report_data:
                     print(
-                        "\n[DEBUG] Nagios returned an empty availability object. Here is the raw API response:"
+                        "\n[DEBUG] Nagios returned an empty availability object."
+                        " Here is the raw API response:"
                     )
                     print(json.dumps(report_data["_debug_raw_dump"], indent=2))
 
     def show_host_uptime(self, host, days=365, output_format="text"):
-        """Displays the current uptime duration and dynamic availability report for a HOST."""
+        """Displays the current uptime duration and availability report for a HOST."""
         params = {"query": "host", "hostname": host}
         response = self._get_json(params)
         host_data = response.get("data", {}).get("host", {})
@@ -709,16 +755,17 @@ class MozzoNagiosClient:
                                 t_unreach / total_time
                             ) * 100
                         else:
-                            report_data["percent_up"] = report_data["percent_down"] = (
-                                report_data["percent_unreachable"]
-                            ) = 0.0
+                            report_data["percent_up"] = 0.0
+                            report_data["percent_down"] = 0.0
+                            report_data["percent_unreachable"] = 0.0
                     else:
                         report_data["_debug_raw_dump"] = arch_data
 
         except requests.exceptions.RequestException as e:
             if output_format == "text":
                 print(
-                    f"⚠️  Could not retrieve availability report via archivejson: {e}",
+                    f"⚠️  Could not retrieve availability report "
+                    f"via archivejson: {e}",
                     file=sys.stderr,
                 )
 
@@ -742,15 +789,18 @@ class MozzoNagiosClient:
                 print(f"{'UP':<12} | {report_data['percent_up']:.3f}%")
                 print(f"{'DOWN':<12} | {report_data['percent_down']:.3f}%")
                 print(
-                    f"{'UNREACHABLE':<12} | {report_data['percent_unreachable']:.3f}%"
+                    f"{'UNREACHABLE':<12} | "
+                    f"{report_data['percent_unreachable']:.3f}%"
                 )
             else:
                 print(
-                    f"No historical availability data found for the last {days} days."
+                    f"No historical availability data found for "
+                    f"the last {days} days."
                 )
                 if "_debug_raw_dump" in report_data:
                     print(
-                        "\n[DEBUG] Nagios returned an empty availability object. Here is the raw API response:"
+                        "\n[DEBUG] Nagios returned an empty availability object."
+                        " Here is the raw API response:"
                     )
                     print(json.dumps(report_data["_debug_raw_dump"], indent=2))
 
@@ -781,7 +831,10 @@ def main():
     )
     parser.add_argument("-c", "--config", type=str, help="Path to specific config.yml")
     parser.add_argument(
-        "-m", "--message", type=str, help="Custom message for acknowledgements/downtime"
+        "-m",
+        "--message",
+        type=str,
+        help="Custom message for acknowledgements/downtime",
     )
     parser.add_argument("--ack", action="store_true", help="Acknowledge an alert")
     parser.add_argument(
@@ -814,7 +867,7 @@ def main():
         "--days",
         type=float,
         default=None,
-        help="Number of days for availability report or downtime (e.g. 0.5 for 12 hours)",
+        help="Number of days for availability report or downtime (e.g. 0.5)",
     )
     parser.add_argument(
         "--format",
