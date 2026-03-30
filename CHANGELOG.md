@@ -1,6 +1,18 @@
 # CHANGELOG
 
 
+## v0.7.1 (2026-03-30)
+
+### Bug Fixes
+
+- --unhandled not parsing statusjson.cgi fully.
+  ([`91b57dc`](https://github.com/sadsfae/mozzo/commit/91b57dcdfe9c9e990688a94c10797dd82cea4b13))
+
+* Fix issue where warning+critical+unknown wasn't interpreted properly causing --unhandled to not
+  return accurately. * Fix falling back to pagination * Add limit '0' globally to ensure pagination
+  doesn't trip us.
+
+
 ## v0.7.0 (2026-03-27)
 
 ### Chores
