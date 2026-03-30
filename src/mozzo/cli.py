@@ -64,6 +64,7 @@ class MozzoNagiosClient:
         # Set the custom message or fallback to default
         self.message = message if message else "Action issued by Mozzo CLI"
         self.days = days
+        self.session = requests.Session()
 
     def _find_config(self, provided_path):
         if provided_path and os.path.exists(provided_path):
@@ -86,7 +87,7 @@ class MozzoNagiosClient:
         payload["com_data"] = self.message
 
         try:
-            response = requests.post(
+            response = self.session.post(
                 self.cmd_url, data=payload, auth=self.auth, verify=self.verify_ssl
             )
             response.raise_for_status()
@@ -102,7 +103,7 @@ class MozzoNagiosClient:
 
     def _get_json(self, params):
         try:
-            response = requests.get(
+            response = self.session.get(
                 self.json_url, params=params, auth=self.auth, verify=self.verify_ssl
             )
             response.raise_for_status()
@@ -248,17 +249,10 @@ class MozzoNagiosClient:
 
         # 1. Server-Side Filtering: Ask Nagios ONLY for non-OK services.
         # This cuts the payload from 12,000 services down to just the broken ones.
-        services = (
-            self._get_json(
-                {
-                    "query": "servicelist",
-                    "details": "true",
-                    "servicestatus": "warning+critical+unknown",
-                }
-            )
-            .get("data", {})
-            .get("servicelist", {})
+        query_str = (
+            "query=servicelist&details=true&" "servicestatus=warning+critical+unknown"
         )
+        services = self._get_json(query_str).get("data", {}).get("servicelist", {})
 
         if not services:
             print("🎉 No unhandled service alerts found!")
@@ -268,14 +262,12 @@ class MozzoNagiosClient:
         affected_hosts = services.keys()
 
         # 3. Lazy Loading: Fetch host details ONLY for the affected hosts
-        hosts = {}
-        for host in affected_hosts:
-            host_data = (
-                self._get_json({"query": "host", "hostname": host})
-                .get("data", {})
-                .get("host", {})
-            )
-            hosts[host] = host_data
+        all_hosts = (
+            self._get_json({"query": "hostlist", "details": "true"})
+            .get("data", {})
+            .get("hostlist", {})
+        )
+        hosts = {h: all_hosts.get(h, {}) for h in affected_hosts}
 
         issue_states = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}
         found = False
@@ -395,7 +387,11 @@ class MozzoNagiosClient:
         output_format="text",
     ):
         """Displays services for a specific host, optionally filtered."""
-        params = {"query": "servicelist", "hostname": host, "details": "true"}
+        params = {
+            "query": "servicelist",
+            "hostname": host,
+            "details": "true",
+        }
         response = self._get_json(params)
         services = response.get("data", {}).get("servicelist", {}).get(host, {})
 
@@ -587,7 +583,7 @@ class MozzoNagiosClient:
         }
 
         try:
-            arch_resp = requests.get(
+            arch_resp = self.session.get(
                 archive_url,
                 params=arch_params,
                 auth=self.auth,
@@ -720,7 +716,7 @@ class MozzoNagiosClient:
         }
 
         try:
-            arch_resp = requests.get(
+            arch_resp = self.session.get(
                 archive_url,
                 params=arch_params,
                 auth=self.auth,
