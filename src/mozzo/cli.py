@@ -147,7 +147,7 @@ class MozzoNagiosClient:
     def ack_all_services(self, host):
         print(f"Fetching all services for '{host}' to acknowledge...")
         services = (
-            self._get_json({"query": "servicelist", "hostname": host})
+            self._get_json({"query": "servicelist", "hostname": host, "limit": 0})
             .get("data", {})
             .get("servicelist", {})
             .get(host, {})
@@ -253,7 +253,8 @@ class MozzoNagiosClient:
                 {
                     "query": "servicelist",
                     "details": "true",
-                    "servicestatus": "warning+critical+unknown",
+                    "servicestatus": ["warning", "critical", "unknown"],
+                    "limit": 0,
                 }
             )
             .get("data", {})
@@ -324,7 +325,7 @@ class MozzoNagiosClient:
 
         # Removed 'servicestatus' to restore acknowledged/silenced issues.
         # details="false" ensures the payload remains extremely lightweight.
-        params = {"query": "servicelist", "details": "false"}
+        params = {"query": "servicelist", "details": "false", "limit": 0}
 
         # We keep the hostname filter for speed if a specific host is requested
         if host:
@@ -395,7 +396,12 @@ class MozzoNagiosClient:
         output_format="text",
     ):
         """Displays services for a specific host, optionally filtered."""
-        params = {"query": "servicelist", "hostname": host, "details": "true"}
+        params = {
+            "query": "servicelist",
+            "hostname": host,
+            "details": "true",
+            "limit": 0,
+        }
         response = self._get_json(params)
         services = response.get("data", {}).get("servicelist", {}).get(host, {})
 
@@ -465,6 +471,7 @@ class MozzoNagiosClient:
             "query": "servicelist",
             "details": "true",
             "servicedescription": service,
+            "limit": 0,
         }
 
         response = self._get_json(params)
