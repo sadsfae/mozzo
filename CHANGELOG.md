@@ -1,6 +1,16 @@
 # CHANGELOG
 
 
+## v0.8.0 (2026-04-01)
+
+### Features
+
+- Add acknowledgement history via CLI.
+  ([`80e86c9`](https://github.com/sadsfae/mozzo/commit/80e86c97aa41cec6a2c8d976678aca8a6aa4027d))
+
+fixes: https://github.com/sadsfae/mozzo/issues/37
+
+
 ## v0.7.1 (2026-03-30)
 
 ### Bug Fixes
