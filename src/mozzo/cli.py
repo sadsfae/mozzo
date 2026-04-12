@@ -32,6 +32,20 @@ __version__ = _get_version()
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
+    """HTTPAdapter that sets a default timeout for all requests."""
+
+    def __init__(self, timeout=60, *args, **kwargs):
+        self.timeout = timeout
+        super().__init__(*args, **kwargs)
+
+    def send(self, request, **kwargs):
+        # Use the instance timeout if no timeout is explicitly provided
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = self.timeout
+        return super().send(request, **kwargs)
+
+
 class MozzoNagiosClient:
     # Status and filter maps used throughout the class
     SERVICE_STATUS_MAP = {
@@ -89,7 +103,12 @@ class MozzoNagiosClient:
         # Set the custom message or fallback to default
         self.message = message if message else "Action issued by Mozzo CLI"
         self.days = days
+
+        # Configure session with timeout adapter for all HTTP/HTTPS requests
         self.session = requests.Session()
+        adapter = TimeoutHTTPAdapter(timeout=60)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     def _find_config(self, provided_path):
         if provided_path and os.path.exists(provided_path):
@@ -142,8 +161,7 @@ class MozzoNagiosClient:
 
         try:
             response = self.session.post(
-                self.cmd_url, data=payload, auth=self.auth, verify=self.verify_ssl,
-                timeout=60
+                self.cmd_url, data=payload, auth=self.auth, verify=self.verify_ssl
             )
             response.raise_for_status()
             if "successfully submitted" in response.text:
@@ -159,8 +177,7 @@ class MozzoNagiosClient:
     def _get_json(self, params):
         try:
             response = self.session.get(
-                self.json_url, params=params, auth=self.auth, verify=self.verify_ssl,
-                timeout=60
+                self.json_url, params=params, auth=self.auth, verify=self.verify_ssl
             )
             response.raise_for_status()
             return response.json()
@@ -625,8 +642,7 @@ class MozzoNagiosClient:
                 self.archive_url,
                 params=arch_params,
                 auth=self.auth,
-                verify=self.verify_ssl,
-                timeout=60,  # Increased timeout for large lab environments
+                verify=self.verify_ssl
             )
             if arch_resp.status_code == 200:
                 arch_data = arch_resp.json()
@@ -726,8 +742,7 @@ class MozzoNagiosClient:
                 self.archive_url,
                 params=arch_params,
                 auth=self.auth,
-                verify=self.verify_ssl,
-                timeout=60,  # Increased timeout for large lab environments
+                verify=self.verify_ssl
             )
             if arch_resp.status_code == 200:
                 arch_data = arch_resp.json()
