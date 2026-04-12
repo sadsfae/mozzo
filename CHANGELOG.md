@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## v0.9.0 (2026-04-12)
+
+### Features
+
+- Major refactor, global timeout, cleanup.
+  ([`16777b0`](https://github.com/sadsfae/mozzo/commit/16777b0c09b4d68c56dfe54ab29c08adfc2f0780))
+
+* Added global 60s timeout * Major refactoring * Major cleanup and removing duplication of some
+  processing * Ensure status map usage to reduce code surface.
+
+- Move global timeout to session layer
+  ([`3ec4aa4`](https://github.com/sadsfae/mozzo/commit/3ec4aa471837baca24b034a485ab6794ad02acea))
+
+
 ## v0.8.0 (2026-04-01)
 
 ### Features
