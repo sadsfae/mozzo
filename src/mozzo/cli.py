@@ -32,7 +32,45 @@ __version__ = _get_version()
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
+    """HTTPAdapter that sets a default timeout for all requests."""
+
+    def __init__(self, timeout=60, *args, **kwargs):
+        self.timeout = timeout
+        super().__init__(*args, **kwargs)
+
+    def send(self, request, **kwargs):
+        # Use the instance timeout if no timeout is explicitly provided
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = self.timeout
+        return super().send(request, **kwargs)
+
+
 class MozzoNagiosClient:
+    # Status and filter maps used throughout the class
+    SERVICE_STATUS_MAP = {
+        1: "⏳ PENDING",
+        2: "✅ OK",
+        4: "⚠️  WARNING",
+        8: "❓ UNKNOWN",
+        16: "❌ CRITICAL",
+    }
+
+    HOST_STATUS_MAP = {
+        0: "⏳ PENDING",
+        2: "✅ UP",
+        4: "❌ DOWN",
+        8: "❓ UNREACHABLE"
+    }
+
+    FILTER_MAP = {
+        "PENDING": 1,
+        "OK": 2,
+        "WARNING": 4,
+        "UNKNOWN": 8,
+        "CRITICAL": 16,
+    }
+
     def __init__(self, config_path=None, message=None, days=None):
         config_file = self._find_config(config_path)
         if not config_file:
@@ -60,11 +98,17 @@ class MozzoNagiosClient:
         self.date_format = self.config.get("date_format", "%m-%d-%Y %H:%M:%S")
         self.cmd_url = f"{self.server}/{self.cgi_path}/cmd.cgi"
         self.json_url = f"{self.server}/{self.cgi_path}/statusjson.cgi"
+        self.archive_url = f"{self.server}/{self.cgi_path}/archivejson.cgi"
 
         # Set the custom message or fallback to default
         self.message = message if message else "Action issued by Mozzo CLI"
         self.days = days
+
+        # Configure session with timeout adapter for all HTTP/HTTPS requests
         self.session = requests.Session()
+        adapter = TimeoutHTTPAdapter(timeout=60)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     def _find_config(self, provided_path):
         if provided_path and os.path.exists(provided_path):
@@ -80,6 +124,35 @@ class MozzoNagiosClient:
             if os.path.exists(path):
                 return path
         return None
+
+    def _normalize_timestamp(self, timestamp):
+        """Convert millisecond timestamps to seconds if needed.
+
+        Nagios CGI sometimes returns timestamps in milliseconds (>9999999999).
+        This helper normalizes them to standard Unix seconds.
+        """
+        if timestamp > 9999999999:
+            return timestamp / 1000.0
+        return timestamp
+
+    def _format_duration(self, last_change_ts):
+        """Format a timestamp delta into human-readable duration.
+
+        Args:
+            last_change_ts: Unix timestamp of the last state change
+
+        Returns:
+            Formatted string like "5d 3h 42m 15s" or "N/A" if invalid
+        """
+        if last_change_ts <= 0:
+            return "N/A"
+
+        last_change_ts = self._normalize_timestamp(last_change_ts)
+        now = datetime.datetime.now().timestamp()
+        delta = datetime.timedelta(seconds=int(now - last_change_ts))
+        hours, rem = divmod(delta.seconds, 3600)
+        minutes, seconds = divmod(rem, 60)
+        return f"{delta.days}d {hours}h {minutes}m {seconds}s"
 
     def _post_cmd(self, payload):
         payload["btnSubmit"] = "Commit"
@@ -395,21 +468,7 @@ class MozzoNagiosClient:
             print(f"⚠️  No services found for host '{host}'.", file=sys.stderr)
             return
 
-        status_map = {
-            1: "⏳ PENDING",
-            2: "✅ OK",
-            4: "⚠️  WARNING",
-            8: "❓ UNKNOWN",
-            16: "❌ CRITICAL",
-        }
-        filter_map = {
-            "PENDING": 1,
-            "OK": 2,
-            "WARNING": 4,
-            "UNKNOWN": 8,
-            "CRITICAL": 16,
-        }
-        target_status = filter_map.get(output_filter.upper()) if output_filter else None
+        target_status = self.FILTER_MAP.get(output_filter.upper()) if output_filter else None
 
         results = []
         for svc_name, details in services.items():
@@ -421,7 +480,7 @@ class MozzoNagiosClient:
             if target_status and status_code != target_status:
                 continue
 
-            status_text = status_map.get(status_code, f"[{status_code}]")
+            status_text = self.SERVICE_STATUS_MAP.get(status_code, f"[{status_code}]")
             results.append(
                 {
                     "host": host,
@@ -485,21 +544,7 @@ class MozzoNagiosClient:
             )
             return
 
-        status_map = {
-            1: "⏳ PENDING",
-            2: "✅ OK",
-            4: "⚠️  WARNING",
-            8: "❓ UNKNOWN",
-            16: "❌ CRITICAL",
-        }
-        filter_map = {
-            "PENDING": 1,
-            "OK": 2,
-            "WARNING": 4,
-            "UNKNOWN": 8,
-            "CRITICAL": 16,
-        }
-        target_status = filter_map.get(output_filter.upper()) if output_filter else None
+        target_status = self.FILTER_MAP.get(output_filter.upper()) if output_filter else None
 
         results = []
         for system_name, details in services.items():
@@ -510,7 +555,7 @@ class MozzoNagiosClient:
                 if target_status and status_code != target_status:
                     continue
 
-                status_text = status_map.get(status_code, f"[{status_code}]")
+                status_text = self.SERVICE_STATUS_MAP.get(status_code, f"[{status_code}]")
                 results.append(
                     {
                         "host": system_name,
@@ -556,27 +601,12 @@ class MozzoNagiosClient:
             )
             return
 
-        status_map = {
-            1: "⏳ PENDING",
-            2: "✅ OK",
-            4: "⚠️  WARNING",
-            8: "❓ UNKNOWN",
-            16: "❌ CRITICAL",
-        }
         status_code = svc_data.get("status")
-        status_text = status_map.get(status_code, f"CODE_{status_code}")
+        status_text = self.SERVICE_STATUS_MAP.get(status_code, f"CODE_{status_code}")
         plugin_output = svc_data.get("plugin_output", "N/A")
 
         last_change = svc_data.get("last_state_change", 0)
-        duration_str = "N/A"
-        if last_change > 0:
-            if last_change > 9999999999:
-                last_change /= 1000.0
-            now = datetime.datetime.now().timestamp()
-            delta = datetime.timedelta(seconds=int(now - last_change))
-            hours, rem = divmod(delta.seconds, 3600)
-            minutes, seconds = divmod(rem, 60)
-            duration_str = f"{delta.days}d {hours}h {minutes}m {seconds}s"
+        duration_str = self._format_duration(last_change)
 
         report_data = {
             "host": host,
@@ -594,7 +624,6 @@ class MozzoNagiosClient:
         # Fetch Dynamic Availability Report
         now_dt = datetime.datetime.now()
         start_dt = now_dt - datetime.timedelta(days=days)
-        archive_url = f"{self.server}/{self.cgi_path}/archivejson.cgi"
 
         arch_params = {
             "query": "availability",
@@ -610,11 +639,10 @@ class MozzoNagiosClient:
 
         try:
             arch_resp = self.session.get(
-                archive_url,
+                self.archive_url,
                 params=arch_params,
                 auth=self.auth,
-                verify=self.verify_ssl,
-                timeout=30,  # Increased timeout for large lab environments
+                verify=self.verify_ssl
             )
             if arch_resp.status_code == 200:
                 arch_data = arch_resp.json()
@@ -677,21 +705,12 @@ class MozzoNagiosClient:
             print(f"⚠️  Host '{host}' not found.", file=sys.stderr)
             return
 
-        status_map = {0: "⏳ PENDING", 2: "✅ UP", 4: "❌ DOWN", 8: "❓ UNREACHABLE"}
         status_code = host_data.get("status")
-        status_text = status_map.get(status_code, f"CODE_{status_code}")
+        status_text = self.HOST_STATUS_MAP.get(status_code, f"CODE_{status_code}")
         plugin_output = host_data.get("plugin_output", "N/A")
 
         last_change = host_data.get("last_state_change", 0)
-        duration_str = "N/A"
-        if last_change > 0:
-            if last_change > 9999999999:
-                last_change /= 1000.0
-            now = datetime.datetime.now().timestamp()
-            delta = datetime.timedelta(seconds=int(now - last_change))
-            hours, rem = divmod(delta.seconds, 3600)
-            minutes, seconds = divmod(rem, 60)
-            duration_str = f"{delta.days}d {hours}h {minutes}m {seconds}s"
+        duration_str = self._format_duration(last_change)
 
         report_data = {
             "host": host,
@@ -706,7 +725,6 @@ class MozzoNagiosClient:
 
         now_dt = datetime.datetime.now()
         start_dt = now_dt - datetime.timedelta(days=days)
-        archive_url = f"{self.server}/{self.cgi_path}/archivejson.cgi"
 
         arch_params = {
             "query": "availability",
@@ -721,11 +739,10 @@ class MozzoNagiosClient:
 
         try:
             arch_resp = self.session.get(
-                archive_url,
+                self.archive_url,
                 params=arch_params,
                 auth=self.auth,
-                verify=self.verify_ssl,
-                timeout=30,  # Increased timeout for large lab environments
+                verify=self.verify_ssl
             )
             if arch_resp.status_code == 200:
                 arch_data = arch_resp.json()
@@ -832,9 +849,7 @@ class MozzoNagiosClient:
                     continue
 
                 # Fix Millisecond timestamps (detect values > 10,000,000,000)
-                entry_time = float(details.get("entry_time", 0))
-                if entry_time > 9999999999:
-                    entry_time /= 1000.0
+                entry_time = self._normalize_timestamp(float(details.get("entry_time", 0)))
 
                 if entry_time < start_ts:
                     continue
