@@ -1,6 +1,35 @@
 # CHANGELOG
 
 
+## v0.10.0 (2026-04-22)
+
+### Chores
+
+- Cleanup
+  ([`79ad9a6`](https://github.com/sadsfae/mozzo/commit/79ad9a6d5d94086fe3d6f236fececac492d2e4f0))
+
+- Fix tests
+  ([`eeb774d`](https://github.com/sadsfae/mozzo/commit/eeb774da7c43fdb36ee4a67257fb1cefc5013731))
+
+### Features
+
+- Add helper methods, local testing.
+  ([`aec5d68`](https://github.com/sadsfae/mozzo/commit/aec5d68fa1653fd9944e78118deb65a59c7ebea9))
+
+* Major refactor * Added helpers
+
+- _get_status_text() - Unified status code to text mapping - _format_downtime_duration() -
+  Centralized duration string formatting - _print_toggle_action() - Standardized alert toggle
+  messaging - _matches_host() - Bidirectional hostname matching (FQDN and shortname) -
+  _build_ack_payload() - Acknowledgement payload construction - _build_downtime_payload() - Downtime
+  payload construction - _build_service_result() - Service result dictionary builder -
+  _fetch_availability_data() - Archive API availability fetching - _print_uptime_report() - Uptime
+  report output formatting
+
+- Add pytest GHA
+  ([`f31ccc1`](https://github.com/sadsfae/mozzo/commit/f31ccc1b84e9102c0feb970a1b4ebd5ce2c7ae5f))
+
+
 ## v0.9.0 (2026-04-12)
 
 ### Features
