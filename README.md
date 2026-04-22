@@ -3,6 +3,7 @@
 A lightweight CLI for acknowledging and managing [Nagios Core](https://www.nagios.org/projects/nagios-core/) alerts and reporting via its native CGI scripts.
 
 [![Flake8 Lint](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml/badge.svg)](https://github.com/sadsfae/mozzo/actions/workflows/flake8.yml)
+[![Run Tests](https://github.com/sadsfae/mozzo/actions/workflows/pytest.yml/badge.svg)](https://github.com/sadsfae/mozzo/actions/workflows/pytest.yml)
 [![PyPI version](https://badge.fury.io/py/mozzo.svg)](https://badge.fury.io/py/mozzo)
 
 ## About

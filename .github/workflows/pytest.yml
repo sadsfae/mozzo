@@ -1,0 +1,38 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - development
+    paths:
+      - "**/*.py"
+      - "tests/**"
+  pull_request:
+    branches:
+      - development
+      - main
+    paths:
+      - "**/*.py"
+      - "tests/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Test Suite
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install pytest
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ -v

@@ -193,29 +193,284 @@ class MozzoNagiosClient:
             end = now + datetime.timedelta(minutes=self.downtime_mins)
         return now.strftime(self.date_format), end.strftime(self.date_format)
 
-    def ack_service(self, host, service):
-        print(f"Acknowledging service '{service}' on host '{host}'...")
+    def _get_status_text(self, status_code, is_host=False):
+        """Get human-readable status text for a status code.
+
+        Args:
+            status_code: Numeric status code from Nagios
+            is_host: If True, use HOST_STATUS_MAP, else SERVICE_STATUS_MAP
+
+        Returns:
+            Formatted status string with emoji, or fallback format
+        """
+        if is_host:
+            return self.HOST_STATUS_MAP.get(status_code, f"CODE_{status_code}")
+        return self.SERVICE_STATUS_MAP.get(status_code, f"[{status_code}]")
+
+    def _format_downtime_duration(self):
+        """Format downtime duration string based on config.
+
+        Returns:
+            String like "5 days" or "120m" based on self.days setting
+        """
+        return f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
+
+    def _print_toggle_action(self, enable, target_description):
+        """Print enable/disable notification message.
+
+        Args:
+            enable: True for enabling, False for disabling
+            target_description: Description of what's being toggled
+        """
+        action = "Enabling" if enable else "Disabling"
+        print(f"{action} notifications for {target_description}...")
+
+    def _matches_host(self, candidate_host, target_host):
+        """Check if candidate hostname matches target (FQDN or shortname).
+
+        Args:
+            candidate_host: Hostname to check
+            target_host: Target hostname to match against
+
+        Returns:
+            True if hosts match (exact or shortname match)
+        """
+        candidate_short = candidate_host.split(".")[0].lower()
+        candidate_lower = candidate_host.lower()
+        target_short = target_host.split(".")[0].lower()
+        target_lower = target_host.lower()
+
+        return candidate_lower == target_lower or candidate_short == target_short
+
+    def _build_ack_payload(self, host, service=None):
+        """Build acknowledgement command payload.
+
+        Args:
+            host: Target host
+            service: Optional service name (None for host ack)
+
+        Returns:
+            Dictionary payload for cmd.cgi
+        """
         payload = {
-            "cmd_typ": 34,
+            "cmd_typ": 34 if service else 33,
             "cmd_mod": 2,
             "host": host,
-            "service": service,
             "sticky_ack": "on",
             "send_notification": "off",
             "persistent": "off",
         }
+        if service:
+            payload["service"] = service
+        return payload
+
+    def _build_downtime_payload(self, host, service=None, all_services=False):
+        """Build downtime command payload.
+
+        Args:
+            host: Target host
+            service: Optional service name
+            all_services: If True, schedules downtime for host + all services
+
+        Returns:
+            Dictionary payload for cmd.cgi
+        """
+        start, end = self._get_downtime_windows()
+
+        if all_services:
+            cmd_typ = 86
+            service_val = "all"
+        elif service:
+            cmd_typ = 56
+            service_val = service
+        else:
+            cmd_typ = 55
+            service_val = None
+
+        payload = {
+            "cmd_typ": cmd_typ,
+            "cmd_mod": 2,
+            "host": host,
+            "fixed": 1,
+            "start_time": start,
+            "end_time": end,
+        }
+
+        if service_val:
+            payload["service"] = service_val
+
+        return payload
+
+    def _build_service_result(self, host, service_name, details):
+        """Build standardized service result dictionary.
+
+        Args:
+            host: Host name
+            service_name: Service description
+            details: Service details from API
+
+        Returns:
+            Dictionary with service result data
+        """
+        status_code = details.get("status")
+        status_text = self._get_status_text(status_code, is_host=False)
+
+        return {
+            "host": host,
+            "service": service_name,
+            "status_code": status_code,
+            "status": status_text,
+            "plugin_output": details.get("plugin_output", ""),
+            "long_plugin_output": details.get("long_plugin_output", ""),
+        }
+
+    def _fetch_availability_data(self, host, service=None, days=365):
+        """Fetch availability data from archive API.
+
+        Args:
+            host: Target host
+            service: Optional service name (None for host availability)
+            days: Number of days to query
+
+        Returns:
+            Dictionary with availability percentages, or None on error
+        """
+        now_dt = datetime.datetime.now()
+        start_dt = now_dt - datetime.timedelta(days=days)
+
+        arch_params = {
+            "query": "availability",
+            "availabilityobjecttype": "services" if service else "hosts",
+            "hostname": host,
+            "starttime": int(start_dt.timestamp()),
+            "endtime": int(now_dt.timestamp()),
+            "assumeinitialstate": "true",
+            "assumestateretention": "true",
+            "assumestatesduringnagiosdowntime": "true",
+        }
+
+        if service:
+            arch_params["servicedescription"] = service
+
+        try:
+            arch_resp = self.session.get(
+                self.archive_url,
+                params=arch_params,
+                auth=self.auth,
+                verify=self.verify_ssl
+            )
+
+            if arch_resp.status_code != 200:
+                return None
+
+            arch_data = arch_resp.json()
+            avail_key = "service" if service else "host"
+            avail = arch_data.get("data", {}).get(avail_key, {})
+
+            if not avail:
+                return None
+
+            if service:
+                if avail.get("description") != service:
+                    return {"_debug_raw_dump": arch_data}
+
+                t_ok = avail.get("time_ok", 0)
+                t_warn = avail.get("time_warning", 0)
+                t_unk = avail.get("time_unknown", 0)
+                t_crit = avail.get("time_critical", 0)
+                t_nodata = avail.get("time_indeterminate_nodata", 0)
+                t_notrunning = avail.get("time_indeterminate_notrunning", 0)
+                total_time = t_ok + t_warn + t_unk + t_crit + t_nodata + t_notrunning
+
+                if total_time > 0:
+                    return {
+                        "percent_ok": (t_ok / total_time) * 100,
+                        "percent_warning": (t_warn / total_time) * 100,
+                        "percent_unknown": (t_unk / total_time) * 100,
+                        "percent_critical": (t_crit / total_time) * 100,
+                    }
+            else:
+                if not (avail.get("name") == host or avail.get("host_name") == host):
+                    return None
+
+                t_up = avail.get("time_up", 0)
+                t_down = avail.get("time_down", 0)
+                t_unreach = avail.get("time_unreachable", 0)
+                t_nodata = avail.get("time_indeterminate_nodata", 0)
+                t_notrunning = avail.get("time_indeterminate_notrunning", 0)
+                total_time = t_up + t_down + t_unreach + t_nodata + t_notrunning
+
+                if total_time > 0:
+                    return {
+                        "percent_up": (t_up / total_time) * 100,
+                        "percent_down": (t_down / total_time) * 100,
+                        "percent_unreachable": (t_unreach / total_time) * 100,
+                    }
+
+            return None
+
+        except requests.exceptions.RequestException:
+            return None
+
+    def _print_uptime_report(self, report_data, output_format, is_host=False):
+        """Print uptime/availability report in requested format.
+
+        Args:
+            report_data: Dictionary with report information
+            output_format: One of "json", "csv", "text"
+            is_host: True for host reports, False for service reports
+        """
+        if output_format == "json":
+            print(json.dumps(report_data, indent=2))
+        elif output_format == "csv":
+            report_data.pop("_debug_raw_dump", None)
+            writer = csv.DictWriter(sys.stdout, fieldnames=report_data.keys())
+            writer.writeheader()
+            writer.writerow(report_data)
+        else:
+            days = report_data.get("availability_days", 365)
+
+            if is_host:
+                print(f"\n--- Host Status & Uptime: '{report_data['host']}' ---")
+                print(f"Status        : {report_data['status']}")
+                print(f"State Duration: {report_data['duration']}")
+                print(f"Output        : {report_data['output']}")
+                print(f"\n--- {days}-Day Availability Report ---")
+
+                if report_data.get("percent_up") is not None:
+                    print(f"{'State':<12} | {'% Total Time':<15}")
+                    print("-" * 32)
+                    print(f"{'UP':<12} | {report_data['percent_up']:.3f}%")
+                    print(f"{'DOWN':<12} | {report_data['percent_down']:.3f}%")
+                    print(
+                        f"{'UNREACHABLE':<12} | "
+                        f"{report_data['percent_unreachable']:.3f}%"
+                    )
+            else:
+                host = report_data.get("host")
+                service = report_data.get("service")
+                print(f"\n--- Status & Uptime: '{service}' on '{host}' ---")
+                print(f"Status        : {report_data['status']}")
+                print(f"State Duration: {report_data['duration']}")
+                print(f"Output        : {report_data['output']}")
+                print(f"\n--- {days}-Day Availability Report ---")
+
+                if report_data.get("percent_ok") is not None:
+                    print(f"{'State':<10} | {'% Total Time':<15}")
+                    print("-" * 30)
+                    print(f"{'OK':<10} | {report_data['percent_ok']:.3f}%")
+                    print(f"{'WARNING':<10} | {report_data['percent_warning']:.3f}%")
+                    print(f"{'UNKNOWN':<10} | {report_data['percent_unknown']:.3f}%")
+                    print(f"{'CRITICAL':<10} | {report_data['percent_critical']:.3f}%")
+
+    def ack_service(self, host, service):
+        print(f"Acknowledging service '{service}' on host '{host}'...")
+        payload = self._build_ack_payload(host, service=service)
         self._post_cmd(payload)
 
     def ack_host(self, host):
         print(f"Acknowledging host '{host}'...")
-        payload = {
-            "cmd_typ": 33,
-            "cmd_mod": 2,
-            "host": host,
-            "sticky_ack": "on",
-            "send_notification": "off",
-            "persistent": "off",
-        }
+        payload = self._build_ack_payload(host)
         self._post_cmd(payload)
 
     def ack_all_services(self, host):
@@ -234,72 +489,38 @@ class MozzoNagiosClient:
             self.ack_service(host, svc)
 
     def set_downtime_service(self, host, service):
-        start, end = self._get_downtime_windows()
-        duration_str = (
-            f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
-        )
+        duration_str = self._format_downtime_duration()
         print(
             f"Setting {duration_str} downtime for service "
             f"'{service}' on '{host}'..."
         )
-        payload = {
-            "cmd_typ": 56,
-            "cmd_mod": 2,
-            "host": host,
-            "service": service,
-            "fixed": 1,
-            "start_time": start,
-            "end_time": end,
-        }
+        payload = self._build_downtime_payload(host, service=service)
         self._post_cmd(payload)
 
     def set_downtime_host(self, host):
-        start, end = self._get_downtime_windows()
-        duration_str = (
-            f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
-        )
+        duration_str = self._format_downtime_duration()
         print(f"Setting {duration_str} downtime for host '{host}'...")
-        payload = {
-            "cmd_typ": 55,
-            "cmd_mod": 2,
-            "host": host,
-            "fixed": 1,
-            "start_time": start,
-            "end_time": end,
-        }
+        payload = self._build_downtime_payload(host)
         self._post_cmd(payload)
 
     def set_downtime_all(self, host):
-        start, end = self._get_downtime_windows()
-        duration_str = (
-            f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
-        )
+        duration_str = self._format_downtime_duration()
         print(
             f"Setting {duration_str} downtime for host '{host}' "
             "AND all its services..."
         )
-        payload = {
-            "cmd_typ": 86,
-            "cmd_mod": 2,
-            "host": host,
-            "service": "all",
-            "fixed": 1,
-            "start_time": start,
-            "end_time": end,
-        }
+        payload = self._build_downtime_payload(host, all_services=True)
         self._post_cmd(payload)
 
     def toggle_alerts(self, enable=True, host=None, service=None, all_services=False):
         if host:
             if all_services:
                 cmd_typ = 28 if enable else 29
-                action = "Enabling" if enable else "Disabling"
-                print(f"{action} notifications for all services on '{host}'...")
+                self._print_toggle_action(enable, f"all services on '{host}'")
                 self._post_cmd({"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host})
             elif service:
                 cmd_typ = 22 if enable else 23
-                action = "Enabling" if enable else "Disabling"
-                print(f"{action} notifications for '{service}' on '{host}'...")
+                self._print_toggle_action(enable, f"'{service}' on '{host}'")
                 self._post_cmd(
                     {
                         "cmd_typ": cmd_typ,
@@ -310,12 +531,10 @@ class MozzoNagiosClient:
                 )
             else:
                 cmd_typ = 24 if enable else 25
-                action = "Enabling" if enable else "Disabling"
-                print(f"{action} notifications for host '{host}'...")
+                self._print_toggle_action(enable, f"host '{host}'")
                 self._post_cmd({"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host})
         else:
-            action = "Enabling" if enable else "Disabling"
-            print(f"{action} global notifications...")
+            self._print_toggle_action(enable, "global notifications")
             self._post_cmd({"cmd_typ": 12 if enable else 11, "cmd_mod": 2})
 
     def show_unhandled(self):
@@ -480,17 +699,8 @@ class MozzoNagiosClient:
             if target_status and status_code != target_status:
                 continue
 
-            status_text = self.SERVICE_STATUS_MAP.get(status_code, f"[{status_code}]")
-            results.append(
-                {
-                    "host": host,
-                    "service": svc_name,
-                    "status_code": status_code,
-                    "status": status_text,
-                    "plugin_output": details.get("plugin_output", ""),
-                    "long_plugin_output": details.get("long_plugin_output", ""),
-                }
-            )
+            result = self._build_service_result(host, svc_name, details)
+            results.append(result)
 
         if not results:
             msg = f" for specified filter '{output_filter}'" if output_filter else ""
@@ -555,17 +765,8 @@ class MozzoNagiosClient:
                 if target_status and status_code != target_status:
                     continue
 
-                status_text = self.SERVICE_STATUS_MAP.get(status_code, f"[{status_code}]")
-                results.append(
-                    {
-                        "host": system_name,
-                        "service": service,
-                        "status_code": status_code,
-                        "status": status_text,
-                        "plugin_output": svc_details.get("plugin_output", ""),
-                        "long_plugin_output": svc_details.get("long_plugin_output", ""),
-                    }
-                )
+                result = self._build_service_result(system_name, service, svc_details)
+                results.append(result)
 
         if not results:
             msg = (
@@ -602,7 +803,7 @@ class MozzoNagiosClient:
             return
 
         status_code = svc_data.get("status")
-        status_text = self.SERVICE_STATUS_MAP.get(status_code, f"CODE_{status_code}")
+        status_text = self._get_status_text(status_code, is_host=False)
         plugin_output = svc_data.get("plugin_output", "N/A")
 
         last_change = svc_data.get("last_state_change", 0)
@@ -622,78 +823,11 @@ class MozzoNagiosClient:
         }
 
         # Fetch Dynamic Availability Report
-        now_dt = datetime.datetime.now()
-        start_dt = now_dt - datetime.timedelta(days=days)
+        avail_data = self._fetch_availability_data(host, service=service, days=days)
+        if avail_data:
+            report_data.update(avail_data)
 
-        arch_params = {
-            "query": "availability",
-            "availabilityobjecttype": "services",
-            "hostname": host,
-            "servicedescription": service,
-            "starttime": int(start_dt.timestamp()),
-            "endtime": int(now_dt.timestamp()),
-            "assumeinitialstate": "true",
-            "assumestateretention": "true",
-            "assumestatesduringnagiosdowntime": "true",
-        }
-
-        try:
-            arch_resp = self.session.get(
-                self.archive_url,
-                params=arch_params,
-                auth=self.auth,
-                verify=self.verify_ssl
-            )
-            if arch_resp.status_code == 200:
-                arch_data = arch_resp.json()
-                avail = arch_data.get("data", {}).get("service", {})
-
-                if avail and avail.get("description") == service:
-                    t_ok = avail.get("time_ok", 0)
-                    t_warn = avail.get("time_warning", 0)
-                    t_unk = avail.get("time_unknown", 0)
-                    t_crit = avail.get("time_critical", 0)
-                    t_nodata = avail.get("time_indeterminate_nodata", 0)
-                    t_notrunning = avail.get("time_indeterminate_notrunning", 0)
-                    total_time = (
-                        t_ok + t_warn + t_unk + t_crit + t_nodata + t_notrunning
-                    )
-
-                    if total_time > 0:
-                        report_data["percent_ok"] = (t_ok / total_time) * 100
-                        report_data["percent_warning"] = (t_warn / total_time) * 100
-                        report_data["percent_unknown"] = (t_unk / total_time) * 100
-                        report_data["percent_critical"] = (t_crit / total_time) * 100
-                else:
-                    report_data["_debug_raw_dump"] = arch_data
-        except requests.exceptions.RequestException as e:
-            if output_format == "text":
-                print(
-                    f"⚠️  Could not retrieve availability report: {e}",
-                    file=sys.stderr,
-                )
-
-        if output_format == "json":
-            print(json.dumps(report_data, indent=2))
-        elif output_format == "csv":
-            report_data.pop("_debug_raw_dump", None)
-            writer = csv.DictWriter(sys.stdout, fieldnames=report_data.keys())
-            writer.writeheader()
-            writer.writerow(report_data)
-        else:
-            print(f"\n--- Status & Uptime: '{service}' on '{host}' ---")
-            print(f"Status        : {report_data['status']}")
-            print(f"State Duration: {report_data['duration']}")
-            print(f"Output        : {report_data['output']}")
-            print(f"\n--- {days}-Day Availability Report ---")
-
-            if report_data["percent_ok"] is not None:
-                print(f"{'State':<10} | {'% Total Time':<15}")
-                print("-" * 30)
-                print(f"{'OK':<10} | {report_data['percent_ok']:.3f}%")
-                print(f"{'WARNING':<10} | {report_data['percent_warning']:.3f}%")
-                print(f"{'UNKNOWN':<10} | {report_data['percent_unknown']:.3f}%")
-                print(f"{'CRITICAL':<10} | {report_data['percent_critical']:.3f}%")
+        self._print_uptime_report(report_data, output_format, is_host=False)
 
     def show_host_uptime(self, host, days=365, output_format="text"):
         """Displays uptime duration and availability report for a HOST."""
@@ -706,7 +840,7 @@ class MozzoNagiosClient:
             return
 
         status_code = host_data.get("status")
-        status_text = self.HOST_STATUS_MAP.get(status_code, f"CODE_{status_code}")
+        status_text = self._get_status_text(status_code, is_host=True)
         plugin_output = host_data.get("plugin_output", "N/A")
 
         last_change = host_data.get("last_state_change", 0)
@@ -723,75 +857,11 @@ class MozzoNagiosClient:
             "percent_unreachable": None,
         }
 
-        now_dt = datetime.datetime.now()
-        start_dt = now_dt - datetime.timedelta(days=days)
+        avail_data = self._fetch_availability_data(host, service=None, days=days)
+        if avail_data:
+            report_data.update(avail_data)
 
-        arch_params = {
-            "query": "availability",
-            "availabilityobjecttype": "hosts",
-            "hostname": host,
-            "starttime": int(start_dt.timestamp()),
-            "endtime": int(now_dt.timestamp()),
-            "assumeinitialstate": "true",
-            "assumestateretention": "true",
-            "assumestatesduringnagiosdowntime": "true",
-        }
-
-        try:
-            arch_resp = self.session.get(
-                self.archive_url,
-                params=arch_params,
-                auth=self.auth,
-                verify=self.verify_ssl
-            )
-            if arch_resp.status_code == 200:
-                arch_data = arch_resp.json()
-                avail = arch_data.get("data", {}).get("host", {})
-
-                if avail and (
-                    avail.get("name") == host or avail.get("host_name") == host
-                ):
-                    t_up = avail.get("time_up", 0)
-                    t_down = avail.get("time_down", 0)
-                    t_unreach = avail.get("time_unreachable", 0)
-                    t_nodata = avail.get("time_indeterminate_nodata", 0)
-                    t_notrunning = avail.get("time_indeterminate_notrunning", 0)
-                    total_time = t_up + t_down + t_unreach + t_nodata + t_notrunning
-
-                    if total_time > 0:
-                        report_data["percent_up"] = (t_up / total_time) * 100
-                        report_data["percent_down"] = (t_down / total_time) * 100
-                        report_data["percent_unreachable"] = (
-                            t_unreach / total_time
-                        ) * 100
-        except requests.exceptions.RequestException as e:
-            if output_format == "text":
-                print(
-                    f"⚠️  Could not retrieve availability report: {e}",
-                    file=sys.stderr,
-                )
-
-        if output_format == "json":
-            print(json.dumps(report_data, indent=2))
-        elif output_format == "csv":
-            writer = csv.DictWriter(sys.stdout, fieldnames=report_data.keys())
-            writer.writeheader()
-            writer.writerow(report_data)
-        else:
-            print(f"\n--- Host Status & Uptime: '{host}' ---")
-            print(f"Status        : {report_data['status']}")
-            print(f"State Duration: {report_data['duration']}")
-            print(f"Output        : {report_data['output']}")
-            print(f"\n--- {days}-Day Availability Report ---")
-            if report_data["percent_up"] is not None:
-                print(f"{'State':<12} | {'% Total Time':<15}")
-                print("-" * 32)
-                print(f"{'UP':<12} | {report_data['percent_up']:.3f}%")
-                print(f"{'DOWN':<12} | {report_data['percent_down']:.3f}%")
-                print(
-                    f"{'UNREACHABLE':<12} | "
-                    f"{report_data['percent_unreachable']:.3f}%"
-                )
+        self._print_uptime_report(report_data, output_format, is_host=True)
 
     def show_status(self):
         print("\n--- Nagios Core Status ---")
@@ -815,9 +885,6 @@ class MozzoNagiosClient:
         # Use query=commentlist with details=true for reliable Status API data
         params = {"query": "commentlist", "details": "true"}
         start_ts = (datetime.datetime.now() - datetime.timedelta(days=days)).timestamp()
-
-        # Resilient hostname matching for FQDN vs shortname
-        h_short = host.split(".")[0].lower()
 
         print(f"\n--- Acknowledgement History ({days} days) ---")
         if service:
@@ -854,9 +921,8 @@ class MozzoNagiosClient:
                 if entry_time < start_ts:
                     continue
 
-                log_host = details.get("host_name", "").lower()
-                host_match = log_host == host.lower() or log_host == h_short
-                if not host_match:
+                log_host = details.get("host_name", "")
+                if not self._matches_host(log_host, host):
                     continue
 
                 is_match = False
