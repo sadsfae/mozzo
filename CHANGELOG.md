@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v0.10.1 (2026-04-22)
+
+### Bug Fixes
+
+- Perf regression, restore lazy-loading.
+  ([`4aa6812`](https://github.com/sadsfae/mozzo/commit/4aa6812b3ef6ec1012a8c976b8d30b9745de9179))
+
+- Restored lazy-loading approach - Added smart pre-filtering at service level to minimize host API
+  calls - Reduced from 26+ API calls down to just 3
+
+- Performance regression, restore lazy loading
+  ([`7772173`](https://github.com/sadsfae/mozzo/commit/7772173fb68176999215006c49da8ba500aaaced))
+
+- Restored lazy-loading approach - Added smart pre-filtering at service level to minimize host API
+  calls - Reduced from 26+ API calls down to just 3
+
+
 ## v0.10.0 (2026-04-22)
 
 ### Chores
