@@ -550,21 +550,48 @@ class MozzoNagiosClient:
             print("🎉 No unhandled service alerts found!")
             return
 
-        # 2. Extract only the hosts that have problematic services
-        affected_hosts = services.keys()
-
-        # 3. Lazy Loading: Fetch host details ONLY for the affected hosts
-        all_hosts = (
-            self._get_json({"query": "hostlist", "details": "true"})
-            .get("data", {})
-            .get("hostlist", {})
-        )
-        hosts = {h: all_hosts.get(h, {}) for h in affected_hosts}
-
         issue_states = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}
+
+        # 2. Pre-filter: identify hosts that actually need host-level checks
+        hosts_needing_check = set()
+        for host, svc_dict in services.items():
+            for svc_name, details in svc_dict.items():
+                status_code = details.get("status")
+
+                if status_code not in issue_states.keys():
+                    continue
+
+                svc_ack = details.get(
+                    "problem_has_been_acknowledged"
+                ) or details.get("has_been_acknowledged", False)
+
+                if (
+                    not details.get("notifications_enabled", True)
+                    or svc_ack
+                    or details.get("scheduled_downtime_depth", 0) > 0
+                ):
+                    continue
+
+                hosts_needing_check.add(host)
+                break
+
+        # 3. Lazy Loading: Fetch host details ONLY for hosts with unhandled services
+        hosts = {}
+        for host in hosts_needing_check:
+            host_data = (
+                self._get_json({"query": "host", "hostname": host})
+                .get("data", {})
+                .get("host", {})
+            )
+            hosts[host] = host_data
+
         found = False
 
         for host, svc_dict in services.items():
+            # Skip hosts where all services are already handled at service level
+            if host not in hosts_needing_check:
+                continue
+
             host_details = hosts.get(host, {})
             host_ack = host_details.get(
                 "problem_has_been_acknowledged"
