@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_get_status_text_service_ok(client):
     assert client._get_status_text(2, is_host=False) is not None
     result = client._get_status_text(2, is_host=False)

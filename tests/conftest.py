@@ -4,7 +4,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../src'))
 
-from mozzo.cli import MozzoNagiosClient
+from mozzo.cli import MozzoNagiosClient  # noqa: E402
 
 
 @pytest.fixture

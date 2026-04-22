@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_client_initialization(client):
     assert client is not None
     assert client.server == "https://nagios.example.com"

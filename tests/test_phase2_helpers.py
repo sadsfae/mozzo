@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_build_ack_payload_service(client):
     payload = client._build_ack_payload("test-host", service="HTTP")
     assert payload is not None

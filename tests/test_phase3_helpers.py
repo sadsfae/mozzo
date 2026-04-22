@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_build_service_result_basic(client):
     details = {
         "status": 2,
