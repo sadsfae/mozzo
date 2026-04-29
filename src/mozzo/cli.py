@@ -47,20 +47,32 @@ class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
 
 
 class MozzoNagiosClient:
+    # Status emoji mappings (single source of truth)
+    STATUS_EMOJIS = {
+        'PENDING': '⏳',
+        'OK': '✅',
+        'WARNING': '⚠️ ',
+        'CRITICAL': '❌',
+        'UNKNOWN': '❓',
+        'UP': '✅',
+        'DOWN': '❌',
+        'UNREACHABLE': '❓',
+    }
+
     # Status and filter maps used throughout the class
     SERVICE_STATUS_MAP = {
-        1: "⏳ PENDING",
-        2: "✅ OK",
-        4: "⚠️  WARNING",
-        8: "❓ UNKNOWN",
-        16: "❌ CRITICAL",
+        1: f"{STATUS_EMOJIS['PENDING']} PENDING",
+        2: f"{STATUS_EMOJIS['OK']} OK",
+        4: f"{STATUS_EMOJIS['WARNING']} WARNING",
+        8: f"{STATUS_EMOJIS['UNKNOWN']} UNKNOWN",
+        16: f"{STATUS_EMOJIS['CRITICAL']} CRITICAL",
     }
 
     HOST_STATUS_MAP = {
-        0: "⏳ PENDING",
-        2: "✅ UP",
-        4: "❌ DOWN",
-        8: "❓ UNREACHABLE"
+        0: f"{STATUS_EMOJIS['PENDING']} PENDING",
+        2: f"{STATUS_EMOJIS['UP']} UP",
+        4: f"{STATUS_EMOJIS['DOWN']} DOWN",
+        8: f"{STATUS_EMOJIS['UNREACHABLE']} UNREACHABLE"
     }
 
     FILTER_MAP = {
@@ -1016,16 +1028,6 @@ class MozzoNagiosClient:
 
             print(f"\n--- Nagios Log Entries (Last {days} day(s)) ---\n")
 
-            status_icons = {
-                'OK': '✅',
-                'WARNING': '⚠️ ',
-                'CRITICAL': '❌',
-                'UNKNOWN': '❓',
-                'UP': '✅',
-                'DOWN': '❌',
-                'UNREACHABLE': '❓',
-            }
-
             filtered_count = 0
             displayed_count = 0
 
@@ -1041,7 +1043,7 @@ class MozzoNagiosClient:
 
                 status_icon = ''
                 if 'SERVICE ALERT' in message or 'HOST ALERT' in message:
-                    for status_key, icon in status_icons.items():
+                    for status_key, icon in self.STATUS_EMOJIS.items():
                         if status_key in message.upper():
                             status_icon = f"{icon} "
                             break
