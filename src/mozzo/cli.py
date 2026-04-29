@@ -99,6 +99,7 @@ class MozzoNagiosClient:
         self.cmd_url = f"{self.server}/{self.cgi_path}/cmd.cgi"
         self.json_url = f"{self.server}/{self.cgi_path}/statusjson.cgi"
         self.archive_url = f"{self.server}/{self.cgi_path}/archivejson.cgi"
+        self.showlog_url = f"{self.server}/{self.cgi_path}/showlog.cgi"
 
         # Set the custom message or fallback to default
         self.message = message if message else "Action issued by Mozzo CLI"
@@ -981,6 +982,79 @@ class MozzoNagiosClient:
         except Exception as e:
             print(f"❌ Error fetching history from status API: {e}")
 
+    def show_logs(self, days=1.0, full=False):
+        """Display Nagios log entries for the specified time range.
+
+        Args:
+            days: Number of days to look back (default: 1.0 for 24 hours)
+            full: If True, show all entries including CURRENT STATE (default: False)
+        """
+        import re
+
+        start_ts = int((datetime.datetime.now() - datetime.timedelta(days=days)).timestamp())
+
+        params = {
+            'ts_start': start_ts,
+            'ts_end': int(datetime.datetime.now().timestamp())
+        }
+
+        try:
+            response = self.session.get(
+                self.showlog_url,
+                params=params,
+                auth=self.auth,
+                verify=self.verify_ssl
+            )
+            response.raise_for_status()
+
+            log_pattern = r'\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})\]\s*([^\[<\n]+)'
+            matches = re.findall(log_pattern, response.text)
+
+            if not matches:
+                print(f"No log entries found for the last {days} day(s).")
+                return
+
+            print(f"\n--- Nagios Log Entries (Last {days} day(s)) ---\n")
+
+            status_icons = {
+                'OK': '✅',
+                'WARNING': '⚠️ ',
+                'CRITICAL': '❌',
+                'UNKNOWN': '❓',
+                'UP': '✅',
+                'DOWN': '❌',
+                'UNREACHABLE': '❓',
+            }
+
+            filtered_count = 0
+            displayed_count = 0
+
+            for timestamp, message in matches:
+                message = message.strip()
+                if not message:
+                    continue
+
+                if not full:
+                    if 'CURRENT HOST STATE' in message or 'CURRENT SERVICE STATE' in message:
+                        filtered_count += 1
+                        continue
+
+                status_icon = ''
+                if 'SERVICE ALERT' in message or 'HOST ALERT' in message:
+                    for status_key, icon in status_icons.items():
+                        if status_key in message.upper():
+                            status_icon = f"{icon} "
+                            break
+
+                print(f"{status_icon}[{timestamp}] {message}")
+                displayed_count += 1
+
+            if displayed_count == 0:
+                print("No alert entries found for the specified time range.")
+
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error fetching logs: {e}")
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -1060,6 +1134,16 @@ def main():
         action="store_true",
         help="Show history of acknowledgements",
     )
+    parser.add_argument(
+        "--log",
+        action="store_true",
+        help="Show Nagios log entries",
+    )
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Show raw log including state dumps (for debugging)",
+    )
 
     args = parser.parse_args()
     client = MozzoNagiosClient(
@@ -1124,6 +1208,9 @@ def main():
     elif args.ack_history and args.host:
         history_days = args.days if args.days is not None else client.report_days
         client.show_ack_history(args.host, args.service, history_days)
+    elif args.log:
+        log_days = args.days if args.days is not None else 1.0
+        client.show_logs(log_days, full=args.full)
     else:
         parser.print_help()
 
