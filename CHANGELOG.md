@@ -1,6 +1,27 @@
 # CHANGELOG
 
 
+## v0.11.0 (2026-04-29)
+
+### Chores
+
+- Fix tests
+  ([`43e5f66`](https://github.com/sadsfae/mozzo/commit/43e5f66fddcc36f09a6fb89c8d4b885fd302b6d5))
+
+- Set mozzo.py to be executable
+  ([`13f1b69`](https://github.com/sadsfae/mozzo/commit/13f1b694f07331c96da66f665247f6094749dbd0))
+
+- Use class constant for emoji usage
+  ([`f61f3f4`](https://github.com/sadsfae/mozzo/commit/f61f3f4be0661ac1d4be83086170754fd8db0a3e))
+
+### Features
+
+- --log to view nagios logs
+  ([`063a4a6`](https://github.com/sadsfae/mozzo/commit/063a4a6b817d22939f59112272e81680c2209d5e))
+
+fixes: https://github.com/sadsfae/mozzo/issues/43
+
+
 ## v0.10.1 (2026-04-22)
 
 ### Bug Fixes
