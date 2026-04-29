@@ -44,6 +44,7 @@ Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using 
   - [Listing Service Details on All Hosts](#listing-service-details-on-all-hosts)
   - [Listing Service Details with Output](#listing-service-details-with-output)
   - [Listing Service Details with Filter](#listing-service-details-with-filter)
+  - [Viewing Nagios Logs](#viewing-nagios-logs)
 - [Service Reporting and Uptime](#service-reporting-and-uptime)
   - [Uptime Reporting](#uptime-reporting)
     - [Report Uptime by Service](#report-uptime-by-service)
@@ -292,6 +293,35 @@ Further, you can combine them all to show full plugin output for **all** DNS fai
 ```bash
 mozzo --status --service "DNS" --output-filter CRITICAL --show-output
 ```
+
+### Viewing Nagios Logs
+
+View Nagios alert logs from the last 24 hours:
+
+```bash
+mozzo --log
+```
+
+View logs for a custom time range:
+
+```bash
+mozzo --log --days 7
+```
+
+View logs for the last 12 hours:
+
+```bash
+mozzo --log --days 0.5
+```
+
+View raw log including state dumps (for debugging):
+
+```bash
+mozzo --log --full
+```
+
+> [!NOTE]
+> On busy servers, `--log` may take 1-2 minutes as it downloads the full log file. Use shell pipes to limit output: `mozzo --log | head -n 100`
 
 ## Service Reporting and Uptime
 
