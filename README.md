@@ -26,6 +26,7 @@ Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using 
   - [List Service Issues](#list-service-issues)
   - [Acknowledge a Specific Service](#acknowledge-a-specific-service)
   - [Acknowledge a Host and all its Services](#acknowledge-a-host-and-all-its-services)
+  - [Acknowledge All Alerting Services](#acknowledge-all-alerting-services)
   - [List Acknowledgement History for a Service](#list-acknowledgement-history-for-a-service)
   - [List Acknowledgement History for a Host](#list-acknowledgement-history-for-a-host)
   - [List Acknowledgement History for a Custom Timeframe](#list-acknowledgement-history-for-a-custom-timeframe)
@@ -151,6 +152,14 @@ mozzo --ack --host host01.example.com --all-services
 
 > [!TIP]
 > You can pass `--days` including a float value for downtime, otherwise the value in `config.yml` is used.
+
+### Acknowledge All Alerting Services
+
+Acknowledge all WARNING, CRITICAL, and UNKNOWN services across all hosts that are not already acknowledged, in downtime, or have notifications disabled.
+
+```bash
+mozzo --ack --all
+```
 
 ### List Acknowledgement History for a Service
 
