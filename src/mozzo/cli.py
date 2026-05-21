@@ -83,6 +83,8 @@ class MozzoNagiosClient:
         "CRITICAL": 16,
     }
 
+    ALERTING_SERVICE_FILTER = "warning+critical+unknown"
+
     def __init__(self, config_path=None, message=None, days=None):
         config_file = self._find_config(config_path)
         if not config_file:
@@ -219,6 +221,26 @@ class MozzoNagiosClient:
         if is_host:
             return self.HOST_STATUS_MAP.get(status_code, f"CODE_{status_code}")
         return self.SERVICE_STATUS_MAP.get(status_code, f"[{status_code}]")
+
+    def _is_service_handled(self, details):
+        """Check if a service alert is already handled (acked, in downtime, or silenced)."""
+        if details.get("problem_has_been_acknowledged") or details.get(
+            "has_been_acknowledged", False
+        ):
+            return True
+        if details.get("scheduled_downtime_depth", 0) > 0:
+            return True
+        if not details.get("notifications_enabled", True):
+            return True
+        return False
+
+    def _is_host_handled(self, details):
+        """Check if a host alert is already handled."""
+        if details.get("problem_has_been_acknowledged") or details.get(
+            "has_been_acknowledged", False
+        ):
+            return True
+        return False
 
     def _format_downtime_duration(self):
         """Format downtime duration string based on config.
@@ -506,10 +528,11 @@ class MozzoNagiosClient:
     def acknowledge_all_alerting_services(self):
         print("--- Acknowledging All Alerting Services ---")
 
-        query_str = (
-            "query=servicelist&details=true&" "servicestatus=warning+critical+unknown"
-        )
-        services = self._get_json(query_str).get("data", {}).get("servicelist", {})
+        services = self._get_json({
+            "query": "servicelist",
+            "details": "true",
+            "servicestatus": self.ALERTING_SERVICE_FILTER,
+        }).get("data", {}).get("servicelist", {})
 
         if not services:
             print("No alerting services found.")
@@ -523,15 +546,7 @@ class MozzoNagiosClient:
             for svc_name, details in svc_dict.items():
                 if details.get("status") not in issue_states:
                     continue
-                if details.get("problem_has_been_acknowledged") or details.get(
-                    "has_been_acknowledged", False
-                ):
-                    skipped += 1
-                    continue
-                if details.get("scheduled_downtime_depth", 0) > 0:
-                    skipped += 1
-                    continue
-                if not details.get("notifications_enabled", True):
+                if self._is_service_handled(details):
                     skipped += 1
                     continue
                 targets.append((host, svc_name))
@@ -603,44 +618,37 @@ class MozzoNagiosClient:
     def show_unhandled(self):
         print("\n--- Unhandled Service Alerts ---")
 
-        # 1. Server-Side Filtering: Ask Nagios ONLY for non-OK services.
-        query_str = (
-            "query=servicelist&details=true&" "servicestatus=warning+critical+unknown"
-        )
-        services = self._get_json(query_str).get("data", {}).get("servicelist", {})
+        services = self._get_json({
+            "query": "servicelist",
+            "details": "true",
+            "servicestatus": self.ALERTING_SERVICE_FILTER,
+        }).get("data", {}).get("servicelist", {})
 
         if not services:
-            print("🎉 No unhandled service alerts found!")
+            print(" No unhandled service alerts found!")
             return
 
         issue_states = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}
 
-        # 2. Pre-filter: identify hosts that actually need host-level checks
-        hosts_needing_check = set()
+        # Single pass: filter all unhandled services
+        unhandled = []
         for host, svc_dict in services.items():
             for svc_name, details in svc_dict.items():
                 status_code = details.get("status")
-
-                if status_code not in issue_states.keys():
+                if status_code not in issue_states:
                     continue
-
-                svc_ack = details.get("problem_has_been_acknowledged") or details.get(
-                    "has_been_acknowledged", False
-                )
-
-                if (
-                    not details.get("notifications_enabled", True)
-                    or svc_ack
-                    or details.get("scheduled_downtime_depth", 0) > 0
-                ):
+                if self._is_service_handled(details):
                     continue
+                unhandled.append((host, svc_name, status_code, details))
 
-                hosts_needing_check.add(host)
-                break
+        if not unhandled:
+            print(" No unhandled service alerts found!")
+            return
 
-        # 3. Lazy Loading: Fetch host details ONLY for hosts with unhandled services
+        # Group by host for lazy host detail loading
+        hosts_with_issues = {item[0] for item in unhandled}
         hosts = {}
-        for host in hosts_needing_check:
+        for host in hosts_with_issues:
             host_data = (
                 self._get_json({"query": "host", "hostname": host})
                 .get("data", {})
@@ -648,49 +656,20 @@ class MozzoNagiosClient:
             )
             hosts[host] = host_data
 
-        found = False
-
-        for host, svc_dict in services.items():
-            # Skip hosts where all services are already handled at service level
-            if host not in hosts_needing_check:
-                continue
-
+        # Display, skipping if the host itself is handled
+        for host, svc_name, status_code, details in unhandled:
             host_details = hosts.get(host, {})
-            host_ack = host_details.get(
-                "problem_has_been_acknowledged"
-            ) or host_details.get("has_been_acknowledged", False)
-
             if (
                 not host_details.get("notifications_enabled", True)
-                or host_ack
+                or self._is_host_handled(host_details)
                 or host_details.get("scheduled_downtime_depth", 0) > 0
             ):
                 continue
 
-            for svc_name, details in svc_dict.items():
-                status_code = details.get("status")
-
-                if status_code in issue_states:
-                    svc_ack = details.get(
-                        "problem_has_been_acknowledged"
-                    ) or details.get("has_been_acknowledged", False)
-
-                    if (
-                        not details.get("notifications_enabled", True)
-                        or svc_ack
-                        or details.get("scheduled_downtime_depth", 0) > 0
-                    ):
-                        continue
-
-                    found = True
-                    status_text = issue_states[status_code]
-                    print(
-                        f"[{status_text}] {host} -> {svc_name}\n"
-                        f"    Output: {details.get('plugin_output')}"
-                    )
-
-        if not found:
-            print("🎉 No unhandled service alerts found!")
+            print(
+                f"[{issue_states[status_code]}] {host} -> {svc_name}\n"
+                f"    Output: {details.get('plugin_output')}"
+            )
 
     def show_service_issues(self, host=None):
         issue_states = {4: "⚠️  WARNING", 8: "❓ UNKNOWN", 16: "❌ CRITICAL"}
@@ -879,83 +858,87 @@ class MozzoNagiosClient:
             results, output_format, show_output, header, secondary_key="host"
         )
 
-    def show_service_uptime(self, host, service, days=365, output_format="text"):
-        """Displays uptime duration and dynamic availability report."""
-        params = {
-            "query": "service",
-            "hostname": host,
-            "servicedescription": service,
-        }
-        response = self._get_json(params)
-        svc_data = response.get("data", {}).get("service", {})
+    def _show_uptime(self, query_params, data_key, is_host, output_format):
+        """Fetch and display uptime/availability report (shared by host and service)."""
+        days = query_params.get("_days", 365)
+        api_params = {k: v for k, v in query_params.items() if not k.startswith("_")}
+        response = self._get_json(api_params)
+        data = response.get("data", {}).get(data_key, {})
 
-        if not svc_data:
-            print(
-                f"⚠️  Service '{service}' on host '{host}' not found.",
-                file=sys.stderr,
-            )
+        if not data:
+            if is_host:
+                print(f"Host '{query_params['hostname']}' not found.", file=sys.stderr)
+            else:
+                print(
+                    f"Service '{query_params['servicedescription']}' "
+                    f"on host '{query_params['hostname']}' not found.",
+                    file=sys.stderr,
+                )
             return
 
-        status_code = svc_data.get("status")
-        status_text = self._get_status_text(status_code, is_host=False)
-        plugin_output = svc_data.get("plugin_output", "N/A")
+        status_code = data.get("status")
+        status_text = self._get_status_text(status_code, is_host=is_host)
+        plugin_output = data.get("plugin_output", "N/A")
+        duration_str = self._format_duration(data.get("last_state_change", 0))
 
-        last_change = svc_data.get("last_state_change", 0)
-        duration_str = self._format_duration(last_change)
+        if is_host:
+            report_data = {
+                "host": query_params["hostname"],
+                "status": status_text,
+                "duration": duration_str,
+                "output": plugin_output,
+                "availability_days": days,
+                "percent_up": None,
+                "percent_down": None,
+                "percent_unreachable": None,
+            }
+            avail = self._fetch_availability_data(
+                query_params["hostname"], service=None, days=days
+            )
+        else:
+            report_data = {
+                "host": query_params["hostname"],
+                "service": query_params["servicedescription"],
+                "status": status_text,
+                "duration": duration_str,
+                "output": plugin_output,
+                "availability_days": days,
+                "percent_ok": None,
+                "percent_warning": None,
+                "percent_unknown": None,
+                "percent_critical": None,
+            }
+            avail = self._fetch_availability_data(
+                query_params["hostname"],
+                service=query_params["servicedescription"],
+                days=days,
+            )
 
-        report_data = {
-            "host": host,
-            "service": service,
-            "status": status_text,
-            "duration": duration_str,
-            "output": plugin_output,
-            "availability_days": days,
-            "percent_ok": None,
-            "percent_warning": None,
-            "percent_unknown": None,
-            "percent_critical": None,
-        }
+        if avail:
+            report_data.update(avail)
 
-        # Fetch Dynamic Availability Report
-        avail_data = self._fetch_availability_data(host, service=service, days=days)
-        if avail_data:
-            report_data.update(avail_data)
+        self._print_uptime_report(report_data, output_format, is_host=is_host)
 
-        self._print_uptime_report(report_data, output_format, is_host=False)
+    def show_service_uptime(self, host, service, days=365, output_format="text"):
+        self._show_uptime(
+            {
+                "query": "service",
+                "hostname": host,
+                "servicedescription": service,
+                "_days": days,
+            },
+            data_key="service",
+            is_host=False,
+            output_format=output_format,
+        )
 
     def show_host_uptime(self, host, days=365, output_format="text"):
-        """Displays uptime duration and availability report for a HOST."""
-        params = {"query": "host", "hostname": host}
-        response = self._get_json(params)
-        host_data = response.get("data", {}).get("host", {})
-
-        if not host_data:
-            print(f"⚠️  Host '{host}' not found.", file=sys.stderr)
-            return
-
-        status_code = host_data.get("status")
-        status_text = self._get_status_text(status_code, is_host=True)
-        plugin_output = host_data.get("plugin_output", "N/A")
-
-        last_change = host_data.get("last_state_change", 0)
-        duration_str = self._format_duration(last_change)
-
-        report_data = {
-            "host": host,
-            "status": status_text,
-            "duration": duration_str,
-            "output": plugin_output,
-            "availability_days": days,
-            "percent_up": None,
-            "percent_down": None,
-            "percent_unreachable": None,
-        }
-
-        avail_data = self._fetch_availability_data(host, service=None, days=days)
-        if avail_data:
-            report_data.update(avail_data)
-
-        self._print_uptime_report(report_data, output_format, is_host=True)
+        self._show_uptime(
+            {"query": "host", "hostname": host, "_days": days},
+            data_key="host",
+            is_host=True,
+            output_format=output_format,
+        )
 
     def show_status(self):
         print("\n--- Nagios Core Status ---")
