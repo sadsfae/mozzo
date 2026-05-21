@@ -49,14 +49,14 @@ class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
 class MozzoNagiosClient:
     # Status emoji mappings (single source of truth)
     STATUS_EMOJIS = {
-        'PENDING': '⏳',
-        'OK': '✅',
-        'WARNING': '⚠️ ',
-        'CRITICAL': '❌',
-        'UNKNOWN': '❓',
-        'UP': '✅',
-        'DOWN': '❌',
-        'UNREACHABLE': '❓',
+        "PENDING": "⏳",
+        "OK": "✅",
+        "WARNING": "⚠️ ",
+        "CRITICAL": "❌",
+        "UNKNOWN": "❓",
+        "UP": "✅",
+        "DOWN": "❌",
+        "UNREACHABLE": "❓",
     }
 
     # Status and filter maps used throughout the class
@@ -72,7 +72,7 @@ class MozzoNagiosClient:
         0: f"{STATUS_EMOJIS['PENDING']} PENDING",
         2: f"{STATUS_EMOJIS['UP']} UP",
         4: f"{STATUS_EMOJIS['DOWN']} DOWN",
-        8: f"{STATUS_EMOJIS['UNREACHABLE']} UNREACHABLE"
+        8: f"{STATUS_EMOJIS['UNREACHABLE']} UNREACHABLE",
     }
 
     FILTER_MAP = {
@@ -226,7 +226,9 @@ class MozzoNagiosClient:
         Returns:
             String like "5 days" or "120m" based on self.days setting
         """
-        return f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
+        return (
+            f"{self.days} days" if self.days is not None else f"{self.downtime_mins}m"
+        )
 
     def _print_toggle_action(self, enable, target_description):
         """Print enable/disable notification message.
@@ -370,7 +372,7 @@ class MozzoNagiosClient:
                 self.archive_url,
                 params=arch_params,
                 auth=self.auth,
-                verify=self.verify_ssl
+                verify=self.verify_ssl,
             )
 
             if arch_resp.status_code != 200:
@@ -501,6 +503,54 @@ class MozzoNagiosClient:
         for svc in services.keys():
             self.ack_service(host, svc)
 
+    def acknowledge_all_alerting_services(self):
+        print("--- Acknowledging All Alerting Services ---")
+
+        query_str = (
+            "query=servicelist&details=true&" "servicestatus=warning+critical+unknown"
+        )
+        services = self._get_json(query_str).get("data", {}).get("servicelist", {})
+
+        if not services:
+            print("No alerting services found.")
+            return 0
+
+        issue_states = {4, 8, 16}
+        targets = []
+        skipped = 0
+
+        for host, svc_dict in services.items():
+            for svc_name, details in svc_dict.items():
+                if details.get("status") not in issue_states:
+                    continue
+                if details.get("problem_has_been_acknowledged") or details.get(
+                    "has_been_acknowledged", False
+                ):
+                    skipped += 1
+                    continue
+                if details.get("scheduled_downtime_depth", 0) > 0:
+                    skipped += 1
+                    continue
+                if not details.get("notifications_enabled", True):
+                    skipped += 1
+                    continue
+                targets.append((host, svc_name))
+
+        if not targets:
+            print("No unhandled alerting services to acknowledge.")
+            return 0
+
+        acknowledged = 0
+        for host, svc_name in targets:
+            payload = self._build_ack_payload(host, service=svc_name)
+            self._post_cmd(payload)
+            acknowledged += 1
+
+        if skipped:
+            print(f"Skipped {skipped} service(s)")
+        print(f"--- Acknowledged {acknowledged} service(s) ---")
+        return acknowledged
+
     def set_downtime_service(self, host, service):
         duration_str = self._format_downtime_duration()
         print(
@@ -574,9 +624,9 @@ class MozzoNagiosClient:
                 if status_code not in issue_states.keys():
                     continue
 
-                svc_ack = details.get(
-                    "problem_has_been_acknowledged"
-                ) or details.get("has_been_acknowledged", False)
+                svc_ack = details.get("problem_has_been_acknowledged") or details.get(
+                    "has_been_acknowledged", False
+                )
 
                 if (
                     not details.get("notifications_enabled", True)
@@ -727,7 +777,9 @@ class MozzoNagiosClient:
             print(f"⚠️  No services found for host '{host}'.", file=sys.stderr)
             return
 
-        target_status = self.FILTER_MAP.get(output_filter.upper()) if output_filter else None
+        target_status = (
+            self.FILTER_MAP.get(output_filter.upper()) if output_filter else None
+        )
 
         results = []
         for svc_name, details in services.items():
@@ -794,7 +846,9 @@ class MozzoNagiosClient:
             )
             return
 
-        target_status = self.FILTER_MAP.get(output_filter.upper()) if output_filter else None
+        target_status = (
+            self.FILTER_MAP.get(output_filter.upper()) if output_filter else None
+        )
 
         results = []
         for system_name, details in services.items():
@@ -956,7 +1010,9 @@ class MozzoNagiosClient:
                     continue
 
                 # Fix Millisecond timestamps (detect values > 10,000,000,000)
-                entry_time = self._normalize_timestamp(float(details.get("entry_time", 0)))
+                entry_time = self._normalize_timestamp(
+                    float(details.get("entry_time", 0))
+                )
 
                 if entry_time < start_ts:
                     continue
@@ -1003,23 +1059,22 @@ class MozzoNagiosClient:
         """
         import re
 
-        start_ts = int((datetime.datetime.now() - datetime.timedelta(days=days)).timestamp())
+        start_ts = int(
+            (datetime.datetime.now() - datetime.timedelta(days=days)).timestamp()
+        )
 
         params = {
-            'ts_start': start_ts,
-            'ts_end': int(datetime.datetime.now().timestamp())
+            "ts_start": start_ts,
+            "ts_end": int(datetime.datetime.now().timestamp()),
         }
 
         try:
             response = self.session.get(
-                self.showlog_url,
-                params=params,
-                auth=self.auth,
-                verify=self.verify_ssl
+                self.showlog_url, params=params, auth=self.auth, verify=self.verify_ssl
             )
             response.raise_for_status()
 
-            log_pattern = r'\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})\]\s*([^\[<\n]+)'
+            log_pattern = r"\[(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})\]\s*([^\[<\n]+)"
             matches = re.findall(log_pattern, response.text)
 
             if not matches:
@@ -1037,12 +1092,15 @@ class MozzoNagiosClient:
                     continue
 
                 if not full:
-                    if 'CURRENT HOST STATE' in message or 'CURRENT SERVICE STATE' in message:
+                    if (
+                        "CURRENT HOST STATE" in message
+                        or "CURRENT SERVICE STATE" in message
+                    ):
                         filtered_count += 1
                         continue
 
-                status_icon = ''
-                if 'SERVICE ALERT' in message or 'HOST ALERT' in message:
+                status_icon = ""
+                if "SERVICE ALERT" in message or "HOST ALERT" in message:
                     for status_key, icon in self.STATUS_EMOJIS.items():
                         if status_key in message.upper():
                             status_icon = f"{icon} "
@@ -1084,6 +1142,9 @@ def main():
     parser.add_argument("--service", type=str, help="Target service")
     parser.add_argument(
         "--all-services", action="store_true", help="Apply to all services on host"
+    )
+    parser.add_argument(
+        "--all", action="store_true", help="Acknowledge all alerting services"
     )
     parser.add_argument(
         "--unhandled", action="store_true", help="List unhandled alerts"
@@ -1193,6 +1254,10 @@ def main():
             service=args.service,
             all_services=args.all_services,
         )
+    elif args.ack and args.all:
+        if args.service:
+            parser.error("The argument '--all' cannot be combined with '--service'.")
+        client.acknowledge_all_alerting_services()
     elif args.ack and args.host:
         if args.all_services:
             client.ack_all_services(args.host)
