@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.12.1 (2026-05-21)
+
+### Bug Fixes
+
+- Fix refactoring regression
+  ([`ba9e2bb`](https://github.com/sadsfae/mozzo/commit/ba9e2bbdbe4bd3ec1cdae15d8e6df7df6ccd52c1))
+
+- Issue with uptime command, major refactor
+  ([`ba14251`](https://github.com/sadsfae/mozzo/commit/ba14251c83cddaa10ce16a07e67cf1e1bf109f66))
+
+
 ## v0.12.0 (2026-05-21)
 
 ### Chores
