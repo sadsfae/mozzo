@@ -625,7 +625,7 @@ class MozzoNagiosClient:
         }).get("data", {}).get("servicelist", {})
 
         if not services:
-            print(" No unhandled service alerts found!")
+            print("🎉 No unhandled service alerts found!")
             return
 
         issue_states = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}
@@ -642,7 +642,7 @@ class MozzoNagiosClient:
                 unhandled.append((host, svc_name, status_code, details))
 
         if not unhandled:
-            print(" No unhandled service alerts found!")
+            print("🎉 No unhandled service alerts found!")
             return
 
         # Group by host for lazy host detail loading
@@ -657,6 +657,7 @@ class MozzoNagiosClient:
             hosts[host] = host_data
 
         # Display, skipping if the host itself is handled
+        found = False
         for host, svc_name, status_code, details in unhandled:
             host_details = hosts.get(host, {})
             if (
@@ -666,10 +667,14 @@ class MozzoNagiosClient:
             ):
                 continue
 
+            found = True
             print(
                 f"[{issue_states[status_code]}] {host} -> {svc_name}\n"
                 f"    Output: {details.get('plugin_output')}"
             )
+
+        if not found:
+            print("🎉 No unhandled service alerts found!")
 
     def show_service_issues(self, host=None):
         issue_states = {4: "⚠️  WARNING", 8: "❓ UNKNOWN", 16: "❌ CRITICAL"}
