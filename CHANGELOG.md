@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.12.0 (2026-05-21)
+
+### Chores
+
+- Fix tests
+  ([`d0ccb0e`](https://github.com/sadsfae/mozzo/commit/d0ccb0e5fdb99da9b5e1f687067bf6337533960c))
+
+### Features
+
+- Add --ack --all
+  ([`d481590`](https://github.com/sadsfae/mozzo/commit/d48159033c6a3f6a9aeb4e15739a87c7c38718dd))
+
+
 ## v0.11.0 (2026-04-29)
 
 ### Chores
