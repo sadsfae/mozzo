@@ -83,7 +83,7 @@ class MozzoNagiosClient:
         "CRITICAL": 16,
     }
 
-    ALERTING_SERVICE_FILTER = "warning+critical+unknown"
+    ALERTING_SERVICE_FILTER = "warning critical unknown"
 
     def __init__(self, config_path=None, message=None, days=None):
         config_file = self._find_config(config_path)
