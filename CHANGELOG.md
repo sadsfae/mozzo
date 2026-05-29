@@ -1,6 +1,18 @@
 # CHANGELOG
 
 
+## v0.12.2 (2026-05-29)
+
+### Bug Fixes
+
+- Regression was a URL encoding.
+  ([`462b7ba`](https://github.com/sadsfae/mozzo/commit/462b7ba2ecec86d9f7ae4fd6005c86f52310dd0a))
+
+* introduced during major refactor.
+
+Assisted-by: claude
+
+
 ## v0.12.1 (2026-05-21)
 
 ### Bug Fixes
