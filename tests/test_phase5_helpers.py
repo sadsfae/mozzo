@@ -1,21 +1,33 @@
 import json
 
 
-def test_print_uptime_report_service_json(client, capsys):
-    report_data = {
-        "host": "test-host",
-        "service": "HTTP",
-        "status": "OK",
-        "duration": "5d 3h",
-        "output": "All good",
-        "availability_days": 30,
-        "percent_ok": 95.5,
-        "percent_warning": 2.5,
-        "percent_unknown": 1.0,
-        "percent_critical": 1.0,
-    }
+SERVICE_REPORT_DATA = {
+    "host": "test-host",
+    "service": "HTTP",
+    "status": "OK",
+    "duration": "5d 3h",
+    "output": "All good",
+    "availability_days": 30,
+    "percent_ok": 95.5,
+    "percent_warning": 2.5,
+    "percent_unknown": 1.0,
+    "percent_critical": 1.0,
+}
 
-    client._print_uptime_report(report_data, "json", is_host=False)
+HOST_REPORT_DATA = {
+    "host": "web01",
+    "status": "UP",
+    "duration": "30d 5h",
+    "output": "Ping OK",
+    "availability_days": 365,
+    "percent_up": 99.9,
+    "percent_down": 0.05,
+    "percent_unreachable": 0.05,
+}
+
+
+def test_print_uptime_report_service_json(client, capsys):
+    client._print_uptime_report(SERVICE_REPORT_DATA, "json", is_host=False)
     captured = capsys.readouterr()
 
     assert "test-host" in captured.out
@@ -25,20 +37,7 @@ def test_print_uptime_report_service_json(client, capsys):
 
 
 def test_print_uptime_report_service_text(client, capsys):
-    report_data = {
-        "host": "test-host",
-        "service": "HTTP",
-        "status": "OK",
-        "duration": "5d 3h",
-        "output": "All good",
-        "availability_days": 30,
-        "percent_ok": 95.5,
-        "percent_warning": 2.5,
-        "percent_unknown": 1.0,
-        "percent_critical": 1.0,
-    }
-
-    client._print_uptime_report(report_data, "text", is_host=False)
+    client._print_uptime_report(SERVICE_REPORT_DATA, "text", is_host=False)
     captured = capsys.readouterr()
 
     assert "Status & Uptime: 'HTTP' on 'test-host'" in captured.out
@@ -48,18 +47,7 @@ def test_print_uptime_report_service_text(client, capsys):
 
 
 def test_print_uptime_report_host_json(client, capsys):
-    report_data = {
-        "host": "web01",
-        "status": "UP",
-        "duration": "30d 5h",
-        "output": "Ping OK",
-        "availability_days": 365,
-        "percent_up": 99.9,
-        "percent_down": 0.05,
-        "percent_unreachable": 0.05,
-    }
-
-    client._print_uptime_report(report_data, "json", is_host=True)
+    client._print_uptime_report(HOST_REPORT_DATA, "json", is_host=True)
     captured = capsys.readouterr()
 
     json_output = json.loads(captured.out)
@@ -68,18 +56,7 @@ def test_print_uptime_report_host_json(client, capsys):
 
 
 def test_print_uptime_report_host_text(client, capsys):
-    report_data = {
-        "host": "web01",
-        "status": "UP",
-        "duration": "30d 5h",
-        "output": "Ping OK",
-        "availability_days": 365,
-        "percent_up": 99.9,
-        "percent_down": 0.05,
-        "percent_unreachable": 0.05,
-    }
-
-    client._print_uptime_report(report_data, "text", is_host=True)
+    client._print_uptime_report(HOST_REPORT_DATA, "text", is_host=True)
     captured = capsys.readouterr()
 
     assert "Host Status & Uptime: 'web01'" in captured.out

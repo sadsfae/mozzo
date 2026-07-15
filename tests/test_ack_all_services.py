@@ -1,50 +1,27 @@
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 import requests
 
 import pytest
 
+from test_helpers import make_mock_response, make_service_entry
+
 
 def test_ack_all_services_success(client, capsys):
-    mock_status = Mock()
-    mock_status.status_code = 200
-    mock_status.json.return_value = {
+    mock_status = make_mock_response(json_data={
         "data": {
             "servicelist": {
                 "host1.example.com": {
-                    "HTTP": {
-                        "status": 16,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 0,
-                        "has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 0,
-                        "plugin_output": "Connection refused",
-                    },
-                    "SSH": {
-                        "status": 4,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 0,
-                        "has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 0,
-                        "plugin_output": "Slow response",
-                    },
+                    "HTTP": make_service_entry(status=16, output="Connection refused"),
+                    "SSH": make_service_entry(status=4, output="Slow response"),
                 },
                 "host2.example.com": {
-                    "Disk": {
-                        "status": 8,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 0,
-                        "has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 0,
-                        "plugin_output": "Unknown state",
-                    },
+                    "Disk": make_service_entry(status=8, output="Unknown state"),
                 },
             }
         }
-    }
+    })
 
-    mock_cmd = Mock()
-    mock_cmd.status_code = 200
-    mock_cmd.text = "Command successfully submitted"
+    mock_cmd = make_mock_response(text="Command successfully submitted")
 
     with patch.object(client.session, "get", return_value=mock_status), patch.object(
         client.session, "post", return_value=mock_cmd
@@ -58,22 +35,15 @@ def test_ack_all_services_success(client, capsys):
 
 
 def test_ack_all_services_no_alerting(client, capsys):
-    mock_status = Mock()
-    mock_status.status_code = 200
-    mock_status.json.return_value = {
+    mock_status = make_mock_response(json_data={
         "data": {
             "servicelist": {
                 "host1.example.com": {
-                    "HTTP": {
-                        "status": 2,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 0,
-                    }
+                    "HTTP": make_service_entry(status=2),
                 }
             }
         }
-    }
+    })
 
     with patch.object(client.session, "get", return_value=mock_status), patch.object(
         client.session, "post"
@@ -87,24 +57,15 @@ def test_ack_all_services_no_alerting(client, capsys):
 
 
 def test_ack_all_services_already_acknowledged(client, capsys):
-    mock_status = Mock()
-    mock_status.status_code = 200
-    mock_status.json.return_value = {
+    mock_status = make_mock_response(json_data={
         "data": {
             "servicelist": {
                 "host1.example.com": {
-                    "HTTP": {
-                        "status": 16,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 1,
-                        "has_been_acknowledged": 1,
-                        "scheduled_downtime_depth": 0,
-                        "plugin_output": "Connection refused",
-                    },
+                    "HTTP": make_service_entry(acknowledged=1),
                 },
             }
         }
-    }
+    })
 
     with patch.object(client.session, "get", return_value=mock_status), patch.object(
         client.session, "post"
@@ -116,24 +77,15 @@ def test_ack_all_services_already_acknowledged(client, capsys):
 
 
 def test_ack_all_services_in_downtime(client, capsys):
-    mock_status = Mock()
-    mock_status.status_code = 200
-    mock_status.json.return_value = {
+    mock_status = make_mock_response(json_data={
         "data": {
             "servicelist": {
                 "host1.example.com": {
-                    "HTTP": {
-                        "status": 4,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 0,
-                        "has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 2,
-                        "plugin_output": "Timeout",
-                    },
+                    "HTTP": make_service_entry(status=4, downtime_depth=2, output="Timeout"),
                 },
             }
         }
-    }
+    })
 
     with patch.object(client.session, "get", return_value=mock_status), patch.object(
         client.session, "post"
@@ -145,24 +97,15 @@ def test_ack_all_services_in_downtime(client, capsys):
 
 
 def test_ack_all_services_notifications_disabled(client, capsys):
-    mock_status = Mock()
-    mock_status.status_code = 200
-    mock_status.json.return_value = {
+    mock_status = make_mock_response(json_data={
         "data": {
             "servicelist": {
                 "host1.example.com": {
-                    "HTTP": {
-                        "status": 16,
-                        "notifications_enabled": 0,
-                        "problem_has_been_acknowledged": 0,
-                        "has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 0,
-                        "plugin_output": "Connection refused",
-                    },
+                    "HTTP": make_service_entry(notifications_enabled=0),
                 },
             }
         }
-    }
+    })
 
     with patch.object(client.session, "get", return_value=mock_status), patch.object(
         client.session, "post"
@@ -182,24 +125,15 @@ def test_ack_all_services_http_error_on_status(client, capsys):
 
 
 def test_ack_all_services_http_error_on_cmd(client, capsys):
-    mock_status = Mock()
-    mock_status.status_code = 200
-    mock_status.json.return_value = {
+    mock_status = make_mock_response(json_data={
         "data": {
             "servicelist": {
                 "host1.example.com": {
-                    "HTTP": {
-                        "status": 16,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 0,
-                        "has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 0,
-                        "plugin_output": "Connection refused",
-                    },
+                    "HTTP": make_service_entry(),
                 },
             }
         }
-    }
+    })
 
     with patch.object(
         client, "_get_json", return_value=mock_status.json.return_value
@@ -211,52 +145,20 @@ def test_ack_all_services_http_error_on_cmd(client, capsys):
 
 
 def test_ack_all_services_mixed_skip_and_ack(client, capsys):
-    mock_status = Mock()
-    mock_status.status_code = 200
-    mock_status.json.return_value = {
+    mock_status = make_mock_response(json_data={
         "data": {
             "servicelist": {
                 "host1.example.com": {
-                    "HTTP": {
-                        "status": 16,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 0,
-                        "has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 0,
-                        "plugin_output": "Critical error",
-                    },
-                    "SSH": {
-                        "status": 4,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 1,
-                        "has_been_acknowledged": 1,
-                        "scheduled_downtime_depth": 0,
-                        "plugin_output": "Warning",
-                    },
-                    "DNS": {
-                        "status": 4,
-                        "notifications_enabled": 0,
-                        "problem_has_been_acknowledged": 0,
-                        "has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 0,
-                        "plugin_output": "DNS timeout",
-                    },
-                    "NTP": {
-                        "status": 8,
-                        "notifications_enabled": 1,
-                        "problem_has_been_acknowledged": 0,
-                        "has_been_acknowledged": 0,
-                        "scheduled_downtime_depth": 1,
-                        "plugin_output": "NTP sync failed",
-                    },
+                    "HTTP": make_service_entry(output="Critical error"),
+                    "SSH": make_service_entry(status=4, acknowledged=1, output="Warning"),
+                    "DNS": make_service_entry(status=4, notifications_enabled=0, output="DNS timeout"),
+                    "NTP": make_service_entry(status=8, downtime_depth=1, output="NTP sync failed"),
                 },
             }
         }
-    }
+    })
 
-    mock_cmd = Mock()
-    mock_cmd.status_code = 200
-    mock_cmd.text = "OK"
+    mock_cmd = make_mock_response(text="OK")
 
     with patch.object(client.session, "get", return_value=mock_status), patch.object(
         client.session, "post", return_value=mock_cmd
