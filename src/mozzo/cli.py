@@ -9,25 +9,11 @@ import sys
 import requests
 import urllib3
 import yaml
+from mozzo import __version__
 
 # Force UTF-8 output to prevent emoji Mojibake (e.g. â instead of ❌)
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
-
-
-def _get_version():
-    """Reads the version from __init__.py without importing the package."""
-    base_path = os.path.dirname(__file__)
-    init_path = os.path.join(base_path, "__init__.py")
-    if os.path.exists(init_path):
-        with open(init_path, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("__version__"):
-                    return line.split("=")[1].strip().strip('"').strip("'")
-    return "UNKNOWN"
-
-
-__version__ = _get_version()
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -84,6 +70,7 @@ class MozzoNagiosClient:
     }
 
     ALERTING_SERVICE_FILTER = "warning critical unknown"
+    ISSUE_STATUS_CODES = {4, 8, 16}
 
     def __init__(self, config_path=None, message=None, days=None):
         config_file = self._find_config(config_path)
@@ -121,7 +108,7 @@ class MozzoNagiosClient:
 
         # Configure session with timeout adapter for all HTTP/HTTPS requests
         self.session = requests.Session()
-        adapter = TimeoutHTTPAdapter(timeout=60)
+        adapter = TimeoutHTTPAdapter()
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
@@ -170,6 +157,7 @@ class MozzoNagiosClient:
         return f"{delta.days}d {hours}h {minutes}m {seconds}s"
 
     def _post_cmd(self, payload):
+        payload["cmd_mod"] = 2
         payload["btnSubmit"] = "Commit"
         payload["com_author"] = self.auth[0]
         payload["com_data"] = self.message
@@ -242,6 +230,13 @@ class MozzoNagiosClient:
             return True
         return False
 
+    def _fetch_alerting_services(self):
+        return self._get_json({
+            "query": "servicelist",
+            "details": "true",
+            "servicestatus": self.ALERTING_SERVICE_FILTER,
+        }).get("data", {}).get("servicelist", {})
+
     def _format_downtime_duration(self):
         """Format downtime duration string based on config.
 
@@ -291,7 +286,6 @@ class MozzoNagiosClient:
         """
         payload = {
             "cmd_typ": 34 if service else 33,
-            "cmd_mod": 2,
             "host": host,
             "sticky_ack": "on",
             "send_notification": "off",
@@ -326,7 +320,6 @@ class MozzoNagiosClient:
 
         payload = {
             "cmd_typ": cmd_typ,
-            "cmd_mod": 2,
             "host": host,
             "fixed": 1,
             "start_time": start,
@@ -528,23 +521,18 @@ class MozzoNagiosClient:
     def acknowledge_all_alerting_services(self):
         print("--- Acknowledging All Alerting Services ---")
 
-        services = self._get_json({
-            "query": "servicelist",
-            "details": "true",
-            "servicestatus": self.ALERTING_SERVICE_FILTER,
-        }).get("data", {}).get("servicelist", {})
+        services = self._fetch_alerting_services()
 
         if not services:
             print("No alerting services found.")
             return 0
 
-        issue_states = {4, 8, 16}
         targets = []
         skipped = 0
 
         for host, svc_dict in services.items():
             for svc_name, details in svc_dict.items():
-                if details.get("status") not in issue_states:
+                if details.get("status") not in self.ISSUE_STATUS_CODES:
                     continue
                 if self._is_service_handled(details):
                     skipped += 1
@@ -595,14 +583,13 @@ class MozzoNagiosClient:
             if all_services:
                 cmd_typ = 28 if enable else 29
                 self._print_toggle_action(enable, f"all services on '{host}'")
-                self._post_cmd({"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host})
+                self._post_cmd({"cmd_typ": cmd_typ, "host": host})
             elif service:
                 cmd_typ = 22 if enable else 23
                 self._print_toggle_action(enable, f"'{service}' on '{host}'")
                 self._post_cmd(
                     {
                         "cmd_typ": cmd_typ,
-                        "cmd_mod": 2,
                         "host": host,
                         "service": service,
                     }
@@ -610,19 +597,15 @@ class MozzoNagiosClient:
             else:
                 cmd_typ = 24 if enable else 25
                 self._print_toggle_action(enable, f"host '{host}'")
-                self._post_cmd({"cmd_typ": cmd_typ, "cmd_mod": 2, "host": host})
+                self._post_cmd({"cmd_typ": cmd_typ, "host": host})
         else:
             self._print_toggle_action(enable, "global notifications")
-            self._post_cmd({"cmd_typ": 12 if enable else 11, "cmd_mod": 2})
+            self._post_cmd({"cmd_typ": 12 if enable else 11})
 
     def show_unhandled(self):
         print("\n--- Unhandled Service Alerts ---")
 
-        services = self._get_json({
-            "query": "servicelist",
-            "details": "true",
-            "servicestatus": self.ALERTING_SERVICE_FILTER,
-        }).get("data", {}).get("servicelist", {})
+        services = self._fetch_alerting_services()
 
         if not services:
             print("🎉 No unhandled service alerts found!")
@@ -677,7 +660,9 @@ class MozzoNagiosClient:
             print("🎉 No unhandled service alerts found!")
 
     def show_service_issues(self, host=None):
-        issue_states = {4: "⚠️  WARNING", 8: "❓ UNKNOWN", 16: "❌ CRITICAL"}
+        issue_states = {
+            code: self.SERVICE_STATUS_MAP[code] for code in self.ISSUE_STATUS_CODES
+        }
         print("\n--- List Service Issues ---")
 
         params = {"query": "servicelist", "details": "false"}
