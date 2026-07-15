@@ -1,11 +1,11 @@
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 import requests
+
+from test_helpers import make_mock_response
 
 
 def test_fetch_availability_data_service_success(client):
-    mock_response = Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
+    mock_response = make_mock_response(json_data={
         "data": {
             "service": {
                 "description": "HTTP",
@@ -17,7 +17,7 @@ def test_fetch_availability_data_service_success(client):
                 "time_indeterminate_notrunning": 0,
             }
         }
-    }
+    })
 
     with patch.object(client.session, 'get', return_value=mock_response):
         result = client._fetch_availability_data("test-host", service="HTTP", days=30)
@@ -34,9 +34,7 @@ def test_fetch_availability_data_service_success(client):
 
 
 def test_fetch_availability_data_host_success(client):
-    mock_response = Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
+    mock_response = make_mock_response(json_data={
         "data": {
             "host": {
                 "name": "test-host",
@@ -47,7 +45,7 @@ def test_fetch_availability_data_host_success(client):
                 "time_indeterminate_notrunning": 0,
             }
         }
-    }
+    })
 
     with patch.object(client.session, 'get', return_value=mock_response):
         result = client._fetch_availability_data("test-host", service=None, days=30)
@@ -62,8 +60,7 @@ def test_fetch_availability_data_host_success(client):
 
 
 def test_fetch_availability_data_http_error(client):
-    mock_response = Mock()
-    mock_response.status_code = 404
+    mock_response = make_mock_response(status_code=404)
 
     with patch.object(client.session, 'get', return_value=mock_response):
         result = client._fetch_availability_data("test-host", service="HTTP")
@@ -79,16 +76,14 @@ def test_fetch_availability_data_request_exception(client):
 
 
 def test_fetch_availability_data_wrong_service(client):
-    mock_response = Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
+    mock_response = make_mock_response(json_data={
         "data": {
             "service": {
                 "description": "HTTPS",
                 "time_ok": 8000,
             }
         }
-    }
+    })
 
     with patch.object(client.session, 'get', return_value=mock_response):
         result = client._fetch_availability_data("test-host", service="HTTP")
@@ -98,9 +93,7 @@ def test_fetch_availability_data_wrong_service(client):
 
 
 def test_fetch_availability_data_empty_response(client):
-    mock_response = Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"data": {}}
+    mock_response = make_mock_response(json_data={"data": {}})
 
     with patch.object(client.session, 'get', return_value=mock_response):
         result = client._fetch_availability_data("test-host", service="HTTP")
