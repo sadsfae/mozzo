@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## v0.12.3 (2026-07-15)
+
+### Bug Fixes
+
+- Refactor for DRY principles.
+  ([`3ce2cca`](https://github.com/sadsfae/mozzo/commit/3ce2cca4570d1d0044e4a247d5a880d9eb0a8f40))
+
+Source code (cli.py): - C1: Replaced 10-line _get_version() file parser with from mozzo import
+  __version__ - C5: Removed redundant timeout=60 kwarg - S12: Moved "cmd_mod": 2 injection into
+  _post_cmd(), removed from 6 callers - S1: Extracted _fetch_alerting_services() helper, replacing
+  identical 5-line blocks in 2 methods - S2: Added ISSUE_STATUS_CODES = {4, 8, 16} class constant,
+  updated 2 of 3 references (line 631 kept as-is per plan)
+
+
 ## v0.12.2 (2026-05-29)
 
 ### Bug Fixes
