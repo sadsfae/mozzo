@@ -10,6 +10,13 @@ def _dispatch_get(servicelist, host_data=None):
         params = params or {}
         if params.get("query") == "host":
             return make_mock_response(json_data={"data": {"host": host_data or {}}})
+        # Real statusjson.cgi: details=false returns int status codes.
+        if params.get("details") == "false":
+            codes = {
+                host: {svc: details["status"] for svc, details in svc_dict.items()}
+                for host, svc_dict in servicelist.items()
+            }
+            return make_mock_response(json_data={"data": {"servicelist": codes}})
         return make_mock_response(json_data={"data": {"servicelist": servicelist}})
 
     return _get
