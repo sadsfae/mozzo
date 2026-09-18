@@ -7,7 +7,7 @@ name = "mozzo"
 version = "0.12.3"
 description = "A command-line assistant for acknowledging and managing Nagios Core alerts."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.6"
 license = {file = "LICENSE"}
 authors = [
     {name = "Will Foster", email = "wfoster@pm.me"}
