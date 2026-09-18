@@ -1,6 +1,123 @@
 # CHANGELOG
 
 
+## v0.12.4 (2026-09-18)
+
+### Bug Fixes
+
+- Clear no-match message for --status --host --output-filter
+  ([`3cdd46f`](https://github.com/sadsfae/mozzo/commit/3cdd46fdb7534dd3d3ca2820f6bb25488b9f0698))
+
+With a filter but no --service, the no-results path printed 'Service None not found ...'. Say no
+  services match the filter; keep 'Service X not found' only for the --service case. Found in live
+  smoke testing against Nagios 4.4.14.
+
+fixes: https://github.com/sadsfae/mozzo/issues/64
+
+- Close empty-service host-guard bypass
+  ([`c401507`](https://github.com/sadsfae/mozzo/commit/c4015070320650899ffeb97e161d9d24e21a6583))
+
+--service "" is falsy, so the require-host guard let it through and a host-scoped toggle still
+  flipped global notifications. Treat any --service value as host-scoped. Also harden the Python 3.6
+  stdout rewrap against streams exposing buffer without errors/line_buffering.
+
+fixes: https://github.com/sadsfae/mozzo/issues/51
+
+- Keep Python 3.6 support and harden the host guard
+  ([`bf834a9`](https://github.com/sadsfae/mozzo/commit/bf834a93783fd636573558f85caf6c988ac58fb7))
+
+Addresses review feedback on requires-python and guard placement.
+
+- Revert requires-python to >=3.6 and add a 3.6 UTF-8 fallback (io.TextIOWrapper rewrap of
+  sys.stdout.buffer) so mozzo still runs on EL8 platform-python (3.6.8) without a venv, while
+  preserving emoji output. - Extract the UTF-8 logic into _force_utf8_stdout for testability and add
+  a test for the 3.6 branch. - Move the --host guard ahead of MozzoNagiosClient construction so
+  argument validation fires before any config read or requests session. - Simplify the argv test
+  fixture to use monkeypatch.setattr and drop the manual try/finally restore. - Assert the guard
+  passes in the two smoke tests.
+
+Tests: 62 passed (was 61); flake8 clean; cli coverage 51% -> 52%.
+
+- Only disable urllib3 warnings when SSL verification is off
+  ([`8b0bbff`](https://github.com/sadsfae/mozzo/commit/8b0bbffc70cb2070fa65d1d89bfde089b774ebf2))
+
+Move urllib3.disable_warnings out of module import into the client constructor, gated on verify_ssl
+  being false. Importing mozzo.cli as a library no longer weakens HTTPS warnings process-wide.
+
+Fixes: https://github.com/sadsfae/mozzo/issues/52
+
+- Raise minimum Python version to 3.7
+  ([`d73ff25`](https://github.com/sadsfae/mozzo/commit/d73ff2524e122d35a5de53a77fa6b70f78b522a4))
+
+sys.stdout.reconfigure requires Python 3.7+.
+
+fixes: https://github.com/sadsfae/mozzo/issues/53
+
+- Require --host for host-scoped mutating commands
+  ([`a4025a2`](https://github.com/sadsfae/mozzo/commit/a4025a24e7dac86eb3d5836a42e41e017e3116dd))
+
+--service/--all-services without --host silently toggled global notifications. Guard in main() now
+  errors for ack/downtime/enable/disable-alerts when a host-scoped modifier is used without a host.
+
+fixes: https://github.com/sadsfae/mozzo/issues/51
+
+- Stop sending off-valued ack checkboxes to cmd.cgi
+  ([`d5a3231`](https://github.com/sadsfae/mozzo/commit/d5a3231a0a5e99d6914c2bac4946bb8790a1d2c3))
+
+cmd.cgi parses send_notification/persistent as checkbox presence, so the "off" values were
+  interpreted as enabled: acks notified and persisted. Omitting the keys keeps both disabled as
+  documented.
+
+fixes: https://github.com/sadsfae/mozzo/issues/59
+
+### Documentation
+
+- Note system deps and venv for pip install
+  ([`cecb30b`](https://github.com/sadsfae/mozzo/commit/cecb30be26c308b77de710937a557a967780faa3))
+
+Document required python3-requests and python3-pyyaml for the standalone (Option 1) install, and
+  instantiate a virtual environment before pip install in Option 2 so it matches the venv pattern
+  used by the pypi option.
+
+### Refactoring
+
+- Extract shared alerting-services filter into a generator
+  ([`e449413`](https://github.com/sadsfae/mozzo/commit/e44941343c8f5f137208e426a18a1d57662bb889))
+
+The 'fetch servicelist, keep issue codes, skip handled' loop was copy pasted into
+  acknowledge_all_alerting_services, show_unhandled, and show_service_issues. Extract
+  _iter_alerting_services() yielding (host, svc_name, status_code, details) with a skip_handled
+  toggle, and have all three consume it. show_service_issues now reuses the shared alerting fetch
+  (details=true) which returns the same issue set.
+
+Fixes: https://github.com/sadsfae/mozzo/issues/54
+
+### Testing
+
+- Cover argparse dispatch layer and command methods
+  ([`dac1b08`](https://github.com/sadsfae/mozzo/commit/dac1b08e2bf0caa74d3d17637399a4e54a99a4c3))
+
+Add parametrized tests driving mozzo.cli.main() end to end via sys.argv with
+  requests.Session.get/post patched at the class level and capsys. Exercises every dispatch branch:
+  ack/downtime/toggle commands, status, uptime, unhandled, service-issues, ack-history, logs, help,
+  JSON output, and the --all/--service mutual-exclusion error.
+
+POST commands assert the posted cmd_typ, host, and service so a dispatch swap, an enable/disable
+  inversion, or a right-command-to-wrong-target bug is caught; read commands assert data-derived
+  output rather than static headers.
+
+cli.py coverage rises from 45% to 88%.
+
+Fixes: https://github.com/sadsfae/mozzo/issues/50
+
+- Harden dispatch and alerting-service mocks
+  ([`73e5a94`](https://github.com/sadsfae/mozzo/commit/73e5a948a54103cb413fd859e2631b3ecb50ae8f))
+
+Mirror real statusjson.cgi shapes in the iteration mock, drop the unreachable details=false fixture
+  branch, and cover the remaining dispatch rows (service-issues --host, --output-filter, csv format,
+  service ack-history, enable-alerts).
+
+
 ## v0.12.3 (2026-07-15)
 
 ### Bug Fixes
