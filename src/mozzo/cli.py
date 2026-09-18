@@ -785,9 +785,12 @@ class MozzoNagiosClient:
             results.append(result)
 
         if not results:
-            msg = f" for specified filter '{output_filter}'" if output_filter else ""
+            if output_filter:
+                msg = f"no services match the filter '{output_filter}'"
+            else:
+                msg = f"service '{service}' not found"
             print(
-                f"⚠️  Service '{service}' not found on host '{host}'{msg}.",
+                f"⚠️  On host '{host}': {msg}.",
                 file=sys.stderr,
             )
             return
