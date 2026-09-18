@@ -247,12 +247,31 @@ class MozzoNagiosClient:
             return True
         return False
 
-    def _fetch_alerting_services(self):
-        return self._get_json({
+    def _fetch_alerting_services(self, host=None):
+        params = {
             "query": "servicelist",
             "details": "true",
             "servicestatus": self.ALERTING_SERVICE_FILTER,
-        }).get("data", {}).get("servicelist", {})
+        }
+        if host:
+            params["hostname"] = host
+        return self._get_json(params).get("data", {}).get("servicelist", {})
+
+    def _iter_alerting_services(self, services, skip_handled=True):
+        """Yield (host, svc_name, status_code, details) for alerting services.
+
+        Iterates the servicelist payload, keeping services whose status is a
+        real issue (WARNING/UNKNOWN/CRITICAL). When skip_handled is True,
+        services already acknowledged, in downtime, or silenced are dropped.
+        """
+        for host, svc_dict in services.items():
+            for svc_name, details in svc_dict.items():
+                status_code = details.get("status")
+                if status_code not in self.ISSUE_STATUS_CODES:
+                    continue
+                if skip_handled and self._is_service_handled(details):
+                    continue
+                yield host, svc_name, status_code, details
 
     def _format_downtime_duration(self):
         """Format downtime duration string based on config.
@@ -547,14 +566,13 @@ class MozzoNagiosClient:
         targets = []
         skipped = 0
 
-        for host, svc_dict in services.items():
-            for svc_name, details in svc_dict.items():
-                if details.get("status") not in self.ISSUE_STATUS_CODES:
-                    continue
-                if self._is_service_handled(details):
-                    skipped += 1
-                    continue
-                targets.append((host, svc_name))
+        for host, svc_name, _, details in self._iter_alerting_services(
+            services, skip_handled=False
+        ):
+            if self._is_service_handled(details):
+                skipped += 1
+                continue
+            targets.append((host, svc_name))
 
         if not targets:
             print("No unhandled alerting services to acknowledge.")
@@ -630,16 +648,7 @@ class MozzoNagiosClient:
 
         issue_states = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}
 
-        # Single pass: filter all unhandled services
-        unhandled = []
-        for host, svc_dict in services.items():
-            for svc_name, details in svc_dict.items():
-                status_code = details.get("status")
-                if status_code not in issue_states:
-                    continue
-                if self._is_service_handled(details):
-                    continue
-                unhandled.append((host, svc_name, status_code, details))
+        unhandled = list(self._iter_alerting_services(services, skip_handled=True))
 
         if not unhandled:
             print("🎉 No unhandled service alerts found!")
@@ -677,37 +686,32 @@ class MozzoNagiosClient:
             print("🎉 No unhandled service alerts found!")
 
     def show_service_issues(self, host=None):
-        issue_states = {
-            code: self.SERVICE_STATUS_MAP[code] for code in self.ISSUE_STATUS_CODES
-        }
         print("\n--- List Service Issues ---")
 
-        params = {"query": "servicelist", "details": "false"}
+        # Intentionally reuses the shared alerting fetch (server-side
+        # servicestatus filter, details=true) that acknowledge_all and
+        # show_unhandled use. This changes the query vs the old client-side
+        # details=false filter, but the issue set is identical: the generator
+        # re-filters on ISSUE_STATUS_CODES.
+        services = self._fetch_alerting_services(host=host)
 
-        if host:
-            params["hostname"] = host
+        grouped = {}
+        for current_host, svc_name, status_code, _ in self._iter_alerting_services(
+            services, skip_handled=False
+        ):
+            grouped.setdefault(current_host, []).append((svc_name, status_code))
 
-        services = self._get_json(params).get("data", {}).get("servicelist", {})
-
-        found = False
-        for current_host, svc_dict in services.items():
-            host_has_issues = False
-            for svc_name, svc_status in svc_dict.items():
-                if svc_status in issue_states:
-                    host_has_issues = True
-                    found = True
-
-            if host_has_issues:
-                print(f"{current_host}:")
-                for svc_name, svc_status in svc_dict.items():
-                    if svc_status in issue_states:
-                        print(
-                            f"    {issue_states[svc_status]} "
-                            f"for service: {svc_name}"
-                        )
-
-        if not found:
+        if not grouped:
             print("🎉 No service issues found!")
+            return
+
+        for current_host, issues in grouped.items():
+            print(f"{current_host}:")
+            for svc_name, status_code in issues:
+                print(
+                    f"    {self.SERVICE_STATUS_MAP[status_code]} "
+                    f"for service: {svc_name}"
+                )
 
     def _print_service_results(
         self, results, output_format, show_output, header_text, secondary_key
