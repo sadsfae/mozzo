@@ -2,6 +2,7 @@
 import argparse
 import csv
 import datetime
+import io
 import json
 import os
 import sys
@@ -12,10 +13,24 @@ import yaml
 from mozzo import __version__
 
 # Force UTF-8 output to prevent emoji Mojibake (e.g. â instead of ❌)
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+def _force_utf8_stdout(stream):
+    """Ensure a stream writes UTF-8, on 3.7+ (reconfigure) and 3.6 (rewrap buffer)."""
+    if hasattr(stream, "reconfigure"):
+        stream.reconfigure(encoding="utf-8")
+        return stream
+    if hasattr(stream, "buffer"):  # Python 3.6 (EL8 platform-python)
+        return io.TextIOWrapper(
+            stream.buffer,
+            encoding="utf-8",
+            errors=getattr(stream, "errors", "strict"),
+            line_buffering=getattr(stream, "line_buffering", False),
+        )
+    return stream
+
+
+sys.stdout = _force_utf8_stdout(sys.stdout)
 
 
 class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
@@ -96,6 +111,8 @@ class MozzoNagiosClient:
         self.downtime_mins = self.config.get("default_downtime", 120)
         self.report_days = self.config.get("default_reporting_days", 365)
         self.verify_ssl = self.config.get("verify_ssl", True)
+        if not self.verify_ssl:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         self.date_format = self.config.get("date_format", "%m-%d-%Y %H:%M:%S")
         self.cmd_url = f"{self.server}/{self.cgi_path}/cmd.cgi"
         self.json_url = f"{self.server}/{self.cgi_path}/statusjson.cgi"
@@ -230,12 +247,31 @@ class MozzoNagiosClient:
             return True
         return False
 
-    def _fetch_alerting_services(self):
-        return self._get_json({
+    def _fetch_alerting_services(self, host=None):
+        params = {
             "query": "servicelist",
             "details": "true",
             "servicestatus": self.ALERTING_SERVICE_FILTER,
-        }).get("data", {}).get("servicelist", {})
+        }
+        if host:
+            params["hostname"] = host
+        return self._get_json(params).get("data", {}).get("servicelist", {})
+
+    def _iter_alerting_services(self, services, skip_handled=True):
+        """Yield (host, svc_name, status_code, details) for alerting services.
+
+        Iterates the servicelist payload, keeping services whose status is a
+        real issue (WARNING/UNKNOWN/CRITICAL). When skip_handled is True,
+        services already acknowledged, in downtime, or silenced are dropped.
+        """
+        for host, svc_dict in services.items():
+            for svc_name, details in svc_dict.items():
+                status_code = details.get("status")
+                if status_code not in self.ISSUE_STATUS_CODES:
+                    continue
+                if skip_handled and self._is_service_handled(details):
+                    continue
+                yield host, svc_name, status_code, details
 
     def _format_downtime_duration(self):
         """Format downtime duration string based on config.
@@ -288,9 +324,9 @@ class MozzoNagiosClient:
             "cmd_typ": 34 if service else 33,
             "host": host,
             "sticky_ack": "on",
-            "send_notification": "off",
-            "persistent": "off",
         }
+        # cmd.cgi parses send_notification/persistent as checkbox presence, not
+        # value: sending "off" enables them. Omit to keep them disabled.
         if service:
             payload["service"] = service
         return payload
@@ -530,14 +566,13 @@ class MozzoNagiosClient:
         targets = []
         skipped = 0
 
-        for host, svc_dict in services.items():
-            for svc_name, details in svc_dict.items():
-                if details.get("status") not in self.ISSUE_STATUS_CODES:
-                    continue
-                if self._is_service_handled(details):
-                    skipped += 1
-                    continue
-                targets.append((host, svc_name))
+        for host, svc_name, _, details in self._iter_alerting_services(
+            services, skip_handled=False
+        ):
+            if self._is_service_handled(details):
+                skipped += 1
+                continue
+            targets.append((host, svc_name))
 
         if not targets:
             print("No unhandled alerting services to acknowledge.")
@@ -613,16 +648,7 @@ class MozzoNagiosClient:
 
         issue_states = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}
 
-        # Single pass: filter all unhandled services
-        unhandled = []
-        for host, svc_dict in services.items():
-            for svc_name, details in svc_dict.items():
-                status_code = details.get("status")
-                if status_code not in issue_states:
-                    continue
-                if self._is_service_handled(details):
-                    continue
-                unhandled.append((host, svc_name, status_code, details))
+        unhandled = list(self._iter_alerting_services(services, skip_handled=True))
 
         if not unhandled:
             print("🎉 No unhandled service alerts found!")
@@ -660,37 +686,32 @@ class MozzoNagiosClient:
             print("🎉 No unhandled service alerts found!")
 
     def show_service_issues(self, host=None):
-        issue_states = {
-            code: self.SERVICE_STATUS_MAP[code] for code in self.ISSUE_STATUS_CODES
-        }
         print("\n--- List Service Issues ---")
 
-        params = {"query": "servicelist", "details": "false"}
+        # Intentionally reuses the shared alerting fetch (server-side
+        # servicestatus filter, details=true) that acknowledge_all and
+        # show_unhandled use. This changes the query vs the old client-side
+        # details=false filter, but the issue set is identical: the generator
+        # re-filters on ISSUE_STATUS_CODES.
+        services = self._fetch_alerting_services(host=host)
 
-        if host:
-            params["hostname"] = host
+        grouped = {}
+        for current_host, svc_name, status_code, _ in self._iter_alerting_services(
+            services, skip_handled=False
+        ):
+            grouped.setdefault(current_host, []).append((svc_name, status_code))
 
-        services = self._get_json(params).get("data", {}).get("servicelist", {})
-
-        found = False
-        for current_host, svc_dict in services.items():
-            host_has_issues = False
-            for svc_name, svc_status in svc_dict.items():
-                if svc_status in issue_states:
-                    host_has_issues = True
-                    found = True
-
-            if host_has_issues:
-                print(f"{current_host}:")
-                for svc_name, svc_status in svc_dict.items():
-                    if svc_status in issue_states:
-                        print(
-                            f"    {issue_states[svc_status]} "
-                            f"for service: {svc_name}"
-                        )
-
-        if not found:
+        if not grouped:
             print("🎉 No service issues found!")
+            return
+
+        for current_host, issues in grouped.items():
+            print(f"{current_host}:")
+            for svc_name, status_code in issues:
+                print(
+                    f"    {self.SERVICE_STATUS_MAP[status_code]} "
+                    f"for service: {svc_name}"
+                )
 
     def _print_service_results(
         self, results, output_format, show_output, header_text, secondary_key
@@ -764,9 +785,12 @@ class MozzoNagiosClient:
             results.append(result)
 
         if not results:
-            msg = f" for specified filter '{output_filter}'" if output_filter else ""
+            if output_filter:
+                msg = f"no services match the filter '{output_filter}'"
+            else:
+                msg = f"service '{service}' not found"
             print(
-                f"⚠️  Service '{service}' not found on host '{host}'{msg}.",
+                f"⚠️  On host '{host}': {msg}.",
                 file=sys.stderr,
             )
             return
@@ -1182,6 +1206,17 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Guard against the silent-global-toggle pitfall: host-scoped mutating
+    # commands require a host. Without one, toggle_alerts falls through to the
+    # global branch and flips notifications for the whole Nagios instance.
+    # Runs before the client is built so it does not depend on config state and
+    # does not spin up a requests session for an invalid invocation.
+    if (args.ack or args.downtime or args.enable_alerts or args.disable_alerts) and (
+        args.service is not None or args.all_services
+    ) and not args.host:
+        parser.error("--service/--all-services require --host")
+
     client = MozzoNagiosClient(
         config_path=args.config, message=args.message, days=args.days
     )

@@ -6,8 +6,9 @@ def test_build_ack_payload_service(client):
     assert payload["host"] == "test-host"
     assert payload["service"] == "HTTP"
     assert payload["sticky_ack"] == "on"
-    assert payload["send_notification"] == "off"
-    assert payload["persistent"] == "off"
+    # cmd.cgi treats these as presence checkboxes; "off" would enable them.
+    assert "send_notification" not in payload
+    assert "persistent" not in payload
 
 
 def test_build_ack_payload_host(client):
@@ -18,8 +19,8 @@ def test_build_ack_payload_host(client):
     assert payload["host"] == "test-host"
     assert "service" not in payload
     assert payload["sticky_ack"] == "on"
-    assert payload["send_notification"] == "off"
-    assert payload["persistent"] == "off"
+    assert "send_notification" not in payload
+    assert "persistent" not in payload
 
 
 def test_build_downtime_payload_service(client):

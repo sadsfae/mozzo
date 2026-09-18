@@ -59,6 +59,9 @@ Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using 
 
 You can clone the repository and run the script directly:
 
+> [!NOTE]
+> python3-requests and python3-pyyaml are required on your system
+
 ```bash
 git clone https://github.com/sadsfae/mozzo.git
 cd mozzo
@@ -68,11 +71,13 @@ chmod +x mozzo.py
 
 ### Option 2: Install via pip
 
-Install globally or in a virtual environment to make the `mozzo` command available anywhere:
+Install in a virtual environment to make the `mozzo` command available anywhere:
 
 ```bash
 git clone https://github.com/sadsfae/mozzo.git
 cd mozzo
+python -m venv .venv
+source .venv/bin/activate
 pip install .
 mozzo --help
 ```
