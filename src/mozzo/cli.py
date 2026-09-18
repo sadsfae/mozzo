@@ -24,8 +24,8 @@ def _force_utf8_stdout(stream):
         return io.TextIOWrapper(
             stream.buffer,
             encoding="utf-8",
-            errors=stream.errors,
-            line_buffering=stream.line_buffering,
+            errors=getattr(stream, "errors", "strict"),
+            line_buffering=getattr(stream, "line_buffering", False),
         )
     return stream
 
@@ -1210,7 +1210,7 @@ def main():
     # Runs before the client is built so it does not depend on config state and
     # does not spin up a requests session for an invalid invocation.
     if (args.ack or args.downtime or args.enable_alerts or args.disable_alerts) and (
-        args.service or args.all_services
+        args.service is not None or args.all_services
     ) and not args.host:
         parser.error("--service/--all-services require --host")
 
