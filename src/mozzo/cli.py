@@ -1186,6 +1186,14 @@ def main():
         config_path=args.config, message=args.message, days=args.days
     )
 
+    # Guard against the silent-global-toggle pitfall: host-scoped mutating
+    # commands require a host. Without one, toggle_alerts falls through to the
+    # global branch and flips notifications for the whole Nagios instance.
+    if (args.ack or args.downtime or args.enable_alerts or args.disable_alerts) and (
+        args.service or args.all_services
+    ) and not args.host:
+        parser.error("--service/--all-services require --host")
+
     if args.unhandled:
         client.show_unhandled()
     elif args.service_issues:
