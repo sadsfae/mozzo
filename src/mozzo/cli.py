@@ -2,6 +2,7 @@
 import argparse
 import csv
 import datetime
+import io
 import json
 import os
 import sys
@@ -12,8 +13,24 @@ import yaml
 from mozzo import __version__
 
 # Force UTF-8 output to prevent emoji Mojibake (e.g. â instead of ❌)
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
+
+
+def _force_utf8_stdout(stream):
+    """Ensure a stream writes UTF-8, on 3.7+ (reconfigure) and 3.6 (rewrap buffer)."""
+    if hasattr(stream, "reconfigure"):
+        stream.reconfigure(encoding="utf-8")
+        return stream
+    if hasattr(stream, "buffer"):  # Python 3.6 (EL8 platform-python)
+        return io.TextIOWrapper(
+            stream.buffer,
+            encoding="utf-8",
+            errors=stream.errors,
+            line_buffering=stream.line_buffering,
+        )
+    return stream
+
+
+sys.stdout = _force_utf8_stdout(sys.stdout)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -1182,6 +1199,17 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Guard against the silent-global-toggle pitfall: host-scoped mutating
+    # commands require a host. Without one, toggle_alerts falls through to the
+    # global branch and flips notifications for the whole Nagios instance.
+    # Runs before the client is built so it does not depend on config state and
+    # does not spin up a requests session for an invalid invocation.
+    if (args.ack or args.downtime or args.enable_alerts or args.disable_alerts) and (
+        args.service or args.all_services
+    ) and not args.host:
+        parser.error("--service/--all-services require --host")
+
     client = MozzoNagiosClient(
         config_path=args.config, message=args.message, days=args.days
     )
