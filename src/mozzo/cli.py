@@ -324,9 +324,9 @@ class MozzoNagiosClient:
             "cmd_typ": 34 if service else 33,
             "host": host,
             "sticky_ack": "on",
-            "send_notification": "off",
-            "persistent": "off",
         }
+        # cmd.cgi parses send_notification/persistent as checkbox presence, not
+        # value: sending "off" enables them. Omit to keep them disabled.
         if service:
             payload["service"] = service
         return payload
