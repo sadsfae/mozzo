@@ -26,9 +26,6 @@ SERVICELIST = {
     }
 }
 
-# details=false responses return status codes rather than detail dicts.
-SERVICELIST_CODES = {"host1.example.com": {"HTTP": 16, "PING": 2}}
-
 HOST_DATA = {
     "status": 4,
     "notifications_enabled": 1,
@@ -59,7 +56,15 @@ COMMENTLIST = {
         "service_description": "",
         "author": "admin",
         "comment_data": "acked by admin",
-    }
+    },
+    "2": {
+        "entry_type": 4,
+        "entry_time": COMMENT_TS,
+        "host_name": "host1.example.com",
+        "service_description": "HTTP",
+        "author": "admin",
+        "comment_data": "acked by admin svc",
+    },
 }
 
 HOST_AVAILABILITY = {
@@ -101,8 +106,7 @@ def fake_get(url, params=None, **kwargs):
 
     query = params.get("query")
     if query == "servicelist":
-        listing = SERVICELIST_CODES if params.get("details") == "false" else SERVICELIST
-        return make_mock_response(json_data={"data": {"servicelist": listing}})
+        return make_mock_response(json_data={"data": {"servicelist": SERVICELIST}})
 
     payloads = {
         "programstatus": {"data": {"programstatus": PROGRAMSTATUS}},
@@ -152,9 +156,23 @@ READ_CASES = [
     ),
     (["--unhandled"], "host1.example.com -> HTTP"),
     (["--service-issues"], "for service: HTTP"),
+    (["--service-issues", "--host", "host1.example.com"], "for service: HTTP"),
+    # Filtered output keeps only CRITICAL rows.
+    (
+        ["--status", "--host", "host1.example.com", "--output-filter", "CRITICAL"],
+        "HTTP",
+    ),
+    (
+        ["--status", "--host", "host1.example.com", "--format", "csv"],
+        "host,service,status_code,status",
+    ),
     # Comment formatting path (author/comment) is reached only with a
     # timestamp inside the reporting window.
     (["--ack-history", "--host", "host1.example.com"], "acked by admin"),
+    (
+        ["--ack-history", "--host", "host1.example.com", "--service", "HTTP"],
+        "acked by admin svc",
+    ),
     # Alert line survives the default (non-full) state-dump filter.
     (["--log"], "SERVICE ALERT"),
     # CURRENT STATE dumps appear only with --full.
@@ -191,6 +209,7 @@ POST_CASES = [
     (["--disable-alerts"], 11, None, None),
     (["--disable-alerts", "--host", HOST], 25, HOST, None),
     (["--disable-alerts", "--host", HOST, "--service", "HTTP"], 23, HOST, "HTTP"),
+    (["--enable-alerts", "--host", HOST, "--service", "HTTP"], 22, HOST, "HTTP"),
     (["--enable-alerts", "--host", HOST, "--all-services"], 28, HOST, None),
 ]
 
