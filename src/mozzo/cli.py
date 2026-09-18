@@ -32,8 +32,6 @@ def _force_utf8_stdout(stream):
 
 sys.stdout = _force_utf8_stdout(sys.stdout)
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 
 class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
     """HTTPAdapter that sets a default timeout for all requests."""
@@ -113,6 +111,8 @@ class MozzoNagiosClient:
         self.downtime_mins = self.config.get("default_downtime", 120)
         self.report_days = self.config.get("default_reporting_days", 365)
         self.verify_ssl = self.config.get("verify_ssl", True)
+        if not self.verify_ssl:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         self.date_format = self.config.get("date_format", "%m-%d-%Y %H:%M:%S")
         self.cmd_url = f"{self.server}/{self.cgi_path}/cmd.cgi"
         self.json_url = f"{self.server}/{self.cgi_path}/statusjson.cgi"
