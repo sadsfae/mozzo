@@ -1,6 +1,18 @@
 # CHANGELOG
 
 
+## Unreleased
+
+### Bug Fixes
+
+- Acknowledge host problems in --ack --all and list them in --unhandled
+
+`--ack --all` only queried servicelist, so DOWN/UNREACHABLE hosts were never acknowledged: service
+acks silenced PING checks while host-level DOWN notifications kept firing. Fetch alerting hosts
+(hoststatus=down unreachable) as well, ack them with the host command (cmd_typ 33), and list host
+problems alongside service problems in --unhandled.
+
+
 ## v0.12.4 (2026-09-18)
 
 ### Bug Fixes

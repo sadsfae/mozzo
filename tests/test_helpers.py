@@ -21,3 +21,15 @@ def make_service_entry(status=16, notifications_enabled=1, acknowledged=0,
         "scheduled_downtime_depth": downtime_depth,
         "plugin_output": output,
     }
+
+
+def make_host_entry(status=4, notifications_enabled=1, acknowledged=0,
+                    downtime_depth=0, output="PING CRITICAL - Packet loss = 100%"):
+    return {
+        "status": status,
+        "notifications_enabled": notifications_enabled,
+        "problem_has_been_acknowledged": acknowledged,
+        "has_been_acknowledged": acknowledged,
+        "scheduled_downtime_depth": downtime_depth,
+        "plugin_output": output,
+    }

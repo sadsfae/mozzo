@@ -1,13 +1,15 @@
 from unittest.mock import patch
 
-from test_helpers import make_mock_response, make_service_entry
+from test_helpers import make_host_entry, make_mock_response, make_service_entry
 
 
-def _dispatch_get(servicelist, host_data=None):
+def _dispatch_get(servicelist, host_data=None, hostlist=None):
     """Return a session.get side_effect that dispatches on the query param."""
 
     def _get(url, params=None, **kwargs):
         params = params or {}
+        if params.get("query") == "hostlist":
+            return make_mock_response(json_data={"data": {"hostlist": hostlist or {}}})
         if params.get("query") == "host":
             return make_mock_response(json_data={"data": {"host": host_data or {}}})
         # Real statusjson.cgi: details=false returns int status codes.
@@ -75,4 +77,29 @@ def test_show_unhandled_none(client, capsys):
     }
     with patch.object(client.session, "get", side_effect=_dispatch_get(servicelist)):
         client.show_unhandled()
-    assert "No unhandled service alerts found" in capsys.readouterr().out
+    assert "No unhandled alerts found" in capsys.readouterr().out
+
+
+def test_show_unhandled_lists_host_problems(client, capsys):
+    servicelist = {
+        "host1.example.com": {
+            "HTTP": make_service_entry(status=16, output="Connection refused"),
+        }
+    }
+    hostlist = {
+        "host1.example.com": make_host_entry(status=4, output="PING CRITICAL"),
+        "host2.example.com": make_host_entry(status=8, output="UNREACHABLE"),
+    }
+    host_data = {"notifications_enabled": 1, "scheduled_downtime_depth": 0}
+    with patch.object(
+        client.session,
+        "get",
+        side_effect=_dispatch_get(servicelist, host_data, hostlist),
+    ):
+        client.show_unhandled()
+
+    out = capsys.readouterr().out
+    assert "[DOWN] host1.example.com" in out
+    assert "PING CRITICAL" in out
+    assert "[UNREACHABLE] host2.example.com" in out
+    assert "host1.example.com -> HTTP" in out

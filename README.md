@@ -22,11 +22,11 @@ Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using 
 - [Configuration](#configuration)
 - [Usage](#usage)
   - [View Nagios Process Status](#view-nagios-process-status)
-  - [List Unhandled or Alerting services](#list-unhandled-or-alerting-services)
+  - [List Unhandled or Alerting Problems](#list-unhandled-or-alerting-problems)
   - [List Service Issues](#list-service-issues)
   - [Acknowledge a Specific Service](#acknowledge-a-specific-service)
   - [Acknowledge a Host and all its Services](#acknowledge-a-host-and-all-its-services)
-  - [Acknowledge All Alerting Services](#acknowledge-all-alerting-services)
+  - [Acknowledge All Alerting Problems](#acknowledge-all-alerting-problems)
   - [List Acknowledgement History for a Service](#list-acknowledgement-history-for-a-service)
   - [List Acknowledgement History for a Host](#list-acknowledgement-history-for-a-host)
   - [List Acknowledgement History for a Custom Timeframe](#list-acknowledgement-history-for-a-custom-timeframe)
@@ -131,7 +131,10 @@ date_format: "%m-%d-%Y %H:%M:%S"
 mozzo --status
 ```
 
-### List Unhandled or Alerting services
+### List Unhandled or Alerting Problems
+
+Lists unhandled host problems (DOWN/UNREACHABLE) and unhandled WARNING, CRITICAL, and UNKNOWN
+services: issues that are not already acknowledged, in downtime, or silenced.
 
 ```bash
 mozzo --unhandled
@@ -158,9 +161,10 @@ mozzo --ack --host host01.example.com --all-services
 > [!TIP]
 > You can pass `--days` including a float value for downtime, otherwise the value in `config.yml` is used.
 
-### Acknowledge All Alerting Services
+### Acknowledge All Alerting Problems
 
-Acknowledge all WARNING, CRITICAL, and UNKNOWN services across all hosts that are not already acknowledged, in downtime, or have notifications disabled.
+Acknowledge all DOWN/UNREACHABLE hosts and all WARNING, CRITICAL, and UNKNOWN services across all
+hosts that are not already acknowledged, in downtime, or have notifications disabled.
 
 ```bash
 mozzo --ack --all
@@ -244,11 +248,8 @@ mozzo --set-downtime --host host01.example.com --all-services -m "Patching windo
 
 ### Acknowledging all Unhandled Issues
 
-- This bash one-liner can ack all unhandled issues in one swoop.
-
-```bash
-mozzo --unhandled | grep -E -i "critical|warning" | while read -r level host arrow service; do mozzo --ack --host "$host" --service "$service"; done
-```
+- `mozzo --ack --all` acknowledges every unhandled host and service problem in one swoop, see
+  [Acknowledge All Alerting Problems](#acknowledge-all-alerting-problems).
 
 ### Listing all Services by Host
 

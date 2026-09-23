@@ -86,6 +86,9 @@ class MozzoNagiosClient:
 
     ALERTING_SERVICE_FILTER = "warning critical unknown"
     ISSUE_STATUS_CODES = {4, 8, 16}
+    ALERTING_HOST_FILTER = "down unreachable"
+    HOST_ISSUE_STATUS_CODES = {4, 8}
+    HOST_STATE_NAMES = {4: "DOWN", 8: "UNREACHABLE"}
 
     def __init__(self, config_path=None, message=None, days=None):
         config_file = self._find_config(config_path)
@@ -227,8 +230,8 @@ class MozzoNagiosClient:
             return self.HOST_STATUS_MAP.get(status_code, f"CODE_{status_code}")
         return self.SERVICE_STATUS_MAP.get(status_code, f"[{status_code}]")
 
-    def _is_service_handled(self, details):
-        """Check if a service alert is already handled (acked, in downtime, or silenced)."""
+    def _is_handled(self, details):
+        """Check if an alert is already handled (acked, in downtime, or silenced)."""
         if details.get("problem_has_been_acknowledged") or details.get(
             "has_been_acknowledged", False
         ):
@@ -236,14 +239,6 @@ class MozzoNagiosClient:
         if details.get("scheduled_downtime_depth", 0) > 0:
             return True
         if not details.get("notifications_enabled", True):
-            return True
-        return False
-
-    def _is_host_handled(self, details):
-        """Check if a host alert is already handled."""
-        if details.get("problem_has_been_acknowledged") or details.get(
-            "has_been_acknowledged", False
-        ):
             return True
         return False
 
@@ -269,9 +264,32 @@ class MozzoNagiosClient:
                 status_code = details.get("status")
                 if status_code not in self.ISSUE_STATUS_CODES:
                     continue
-                if skip_handled and self._is_service_handled(details):
+                if skip_handled and self._is_handled(details):
                     continue
                 yield host, svc_name, status_code, details
+
+    def _fetch_alerting_hosts(self):
+        params = {
+            "query": "hostlist",
+            "details": "true",
+            "hoststatus": self.ALERTING_HOST_FILTER,
+        }
+        return self._get_json(params).get("data", {}).get("hostlist", {})
+
+    def _iter_alerting_hosts(self, hosts, skip_handled=True):
+        """Yield (host, status_code, details) for alerting hosts.
+
+        Iterates the hostlist payload, keeping hosts whose status is DOWN or
+        UNREACHABLE. When skip_handled is True, hosts already acknowledged, in
+        downtime, or silenced are dropped.
+        """
+        for host, details in hosts.items():
+            status_code = details.get("status")
+            if status_code not in self.HOST_ISSUE_STATUS_CODES:
+                continue
+            if skip_handled and self._is_handled(details):
+                continue
+            yield host, status_code, details
 
     def _format_downtime_duration(self):
         """Format downtime duration string based on config.
@@ -554,40 +572,54 @@ class MozzoNagiosClient:
         for svc in services.keys():
             self.ack_service(host, svc)
 
-    def acknowledge_all_alerting_services(self):
-        print("--- Acknowledging All Alerting Services ---")
+    def acknowledge_all_alerting_problems(self):
+        print("--- Acknowledging All Alerting Problems ---")
 
+        hosts = self._fetch_alerting_hosts()
         services = self._fetch_alerting_services()
 
-        if not services:
-            print("No alerting services found.")
-            return 0
+        host_targets = []
+        service_targets = []
+        skipped_hosts = 0
+        skipped_services = 0
 
-        targets = []
-        skipped = 0
+        for host, _, details in self._iter_alerting_hosts(hosts, skip_handled=False):
+            if self._is_handled(details):
+                skipped_hosts += 1
+                continue
+            host_targets.append(host)
 
         for host, svc_name, _, details in self._iter_alerting_services(
             services, skip_handled=False
         ):
-            if self._is_service_handled(details):
-                skipped += 1
+            if self._is_handled(details):
+                skipped_services += 1
                 continue
-            targets.append((host, svc_name))
+            service_targets.append((host, svc_name))
 
-        if not targets:
-            print("No unhandled alerting services to acknowledge.")
+        if skipped_hosts:
+            print(f"Skipped {skipped_hosts} host(s)")
+        if skipped_services:
+            print(f"Skipped {skipped_services} service(s)")
+
+        if not host_targets and not service_targets:
+            print("No unhandled alerting problems to acknowledge.")
             return 0
 
-        acknowledged = 0
-        for host, svc_name in targets:
-            payload = self._build_ack_payload(host, service=svc_name)
-            self._post_cmd(payload)
-            acknowledged += 1
+        for host in host_targets:
+            self._post_cmd(self._build_ack_payload(host))
+        for host, svc_name in service_targets:
+            self._post_cmd(self._build_ack_payload(host, service=svc_name))
 
-        if skipped:
-            print(f"Skipped {skipped} service(s)")
-        print(f"--- Acknowledged {acknowledged} service(s) ---")
-        return acknowledged
+        if host_targets:
+            print(f"Acknowledged {len(host_targets)} host(s)")
+        if service_targets:
+            print(f"Acknowledged {len(service_targets)} service(s)")
+        print(
+            f"--- Acknowledged "
+            f"{len(host_targets) + len(service_targets)} problem(s) ---"
+        )
+        return len(host_targets) + len(service_targets)
 
     def set_downtime_service(self, host, service):
         duration_str = self._format_downtime_duration()
@@ -638,42 +670,42 @@ class MozzoNagiosClient:
             self._post_cmd({"cmd_typ": 12 if enable else 11})
 
     def show_unhandled(self):
-        print("\n--- Unhandled Service Alerts ---")
+        print("\n--- Unhandled Alerts ---")
 
+        hosts = self._fetch_alerting_hosts()
         services = self._fetch_alerting_services()
 
-        if not services:
-            print("🎉 No unhandled service alerts found!")
-            return
-
+        host_states = self.HOST_STATE_NAMES
         issue_states = {4: "WARNING", 8: "UNKNOWN", 16: "CRITICAL"}
 
+        unhandled_hosts = list(self._iter_alerting_hosts(hosts, skip_handled=True))
         unhandled = list(self._iter_alerting_services(services, skip_handled=True))
 
-        if not unhandled:
-            print("🎉 No unhandled service alerts found!")
+        if not unhandled_hosts and not unhandled:
+            print("🎉 No unhandled alerts found!")
             return
 
         # Group by host for lazy host detail loading
         hosts_with_issues = {item[0] for item in unhandled}
-        hosts = {}
+        host_data = {}
         for host in hosts_with_issues:
-            host_data = (
+            host_data[host] = (
                 self._get_json({"query": "host", "hostname": host})
                 .get("data", {})
                 .get("host", {})
             )
-            hosts[host] = host_data
+
+        found = False
+        for host, status_code, details in unhandled_hosts:
+            found = True
+            print(
+                f"[{host_states[status_code]}] {host}\n"
+                f"    Output: {details.get('plugin_output')}"
+            )
 
         # Display, skipping if the host itself is handled
-        found = False
         for host, svc_name, status_code, details in unhandled:
-            host_details = hosts.get(host, {})
-            if (
-                not host_details.get("notifications_enabled", True)
-                or self._is_host_handled(host_details)
-                or host_details.get("scheduled_downtime_depth", 0) > 0
-            ):
+            if self._is_handled(host_data.get(host, {})):
                 continue
 
             found = True
@@ -683,7 +715,7 @@ class MozzoNagiosClient:
             )
 
         if not found:
-            print("🎉 No unhandled service alerts found!")
+            print("🎉 No unhandled alerts found!")
 
     def show_service_issues(self, host=None):
         print("\n--- List Service Issues ---")
@@ -1141,7 +1173,7 @@ def main():
         "--all-services", action="store_true", help="Apply to all services on host"
     )
     parser.add_argument(
-        "--all", action="store_true", help="Acknowledge all alerting services"
+        "--all", action="store_true", help="Acknowledge all unhandled host and service problems"
     )
     parser.add_argument(
         "--unhandled", action="store_true", help="List unhandled alerts"
@@ -1265,7 +1297,7 @@ def main():
     elif args.ack and args.all:
         if args.service:
             parser.error("The argument '--all' cannot be combined with '--service'.")
-        client.acknowledge_all_alerting_services()
+        client.acknowledge_all_alerting_problems()
     elif args.ack and args.host:
         if args.all_services:
             client.ack_all_services(args.host)
