@@ -84,7 +84,7 @@ def test_global_ack_all_passes_guard(cli_main, argv):
     argv("--ack", "--all")
     # Guard passed: --ack --all is a global action that needs no host.
     main_call()
-    assert stub.calls == ["acknowledge_all_alerting_services"]
+    assert stub.calls == ["acknowledge_all_alerting_problems"]
 
 
 def test_ack_history_without_service_modifier_passes_guard(cli_main, argv):

@@ -111,6 +111,7 @@ def fake_get(url, params=None, **kwargs):
     payloads = {
         "programstatus": {"data": {"programstatus": PROGRAMSTATUS}},
         "host": {"data": {"host": HOST_DATA}},
+        "hostlist": {"data": {"hostlist": {HOST: HOST_DATA}}},
         "service": {"data": {"service": SERVICE_DATA}},
         "commentlist": {"data": {"commentlist": COMMENTLIST}},
     }
@@ -201,7 +202,9 @@ POST_CASES = [
     (["--ack", "--host", HOST], 33, HOST, None),
     (["--ack", "--host", HOST, "--service", "HTTP"], 34, HOST, "HTTP"),
     (["--ack", "--host", HOST, "--all-services"], 33, HOST, None),
+    # --ack --all now acks the host problem (33) as well as services (34).
     (["--ack", "--all"], 34, HOST, "HTTP"),
+    (["--ack", "--all"], 33, HOST, None),
     (["--downtime", "--host", HOST], 55, HOST, None),
     (["--downtime", "--host", HOST, "--service", "HTTP"], 56, HOST, "HTTP"),
     (["--downtime", "--host", HOST, "--all-services"], 86, HOST, "all"),
