@@ -1,16 +1,22 @@
 # CHANGELOG
 
 
-## Unreleased
+## v0.12.5 (2026-09-23)
 
 ### Bug Fixes
 
-- Acknowledge host problems in --ack --all and list them in --unhandled
+- Ack host problems in mozzo --ack --all
+  ([`cb61583`](https://github.com/sadsfae/mozzo/commit/cb6158392c4c19ff494becc99f63c7a637736e58))
 
-`--ack --all` only queried servicelist, so DOWN/UNREACHABLE hosts were never acknowledged: service
-acks silenced PING checks while host-level DOWN notifications kept firing. Fetch alerting hosts
-(hoststatus=down unreachable) as well, ack them with the host command (cmd_typ 33), and list host
-problems alongside service problems in --unhandled.
+--ack --all and --unhandled only queried servicelist, so host-level problems (DOWN/UNREACHABLE) were
+  never acknowledged or listed. Host notifications kept firing after a host's PING service was
+  acked.
+
+Fetch alerting hosts (hoststatus=down unreachable) alongside alerting services, ack host problems
+  with the host ack command (cmd_typ 33), and list host problems in --unhandled. Hosts already
+  acknowledged, in downtime, or silenced are skipped.
+
+fixes: https://github.com/sadsfae/mozzo/issues/67
 
 
 ## v0.12.4 (2026-09-18)
