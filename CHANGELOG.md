@@ -14,6 +14,20 @@ and credentials are redacted from error messages.
 
     fixes: https://github.com/sadsfae/mozzo/issues/69
 
+### Bug Fixes
+
+- Detect Nagios 4.5.12+ cmd.cgi CSRF rejections
+
+Nagios 4.5.12 (CVE-2026-48548) rejects every external cmd.cgi client: ack/downtime/toggle
+commands get an "Invalid or missing CSRF cookie!" page and never reach Nagios, while mozzo
+printed the misleading "success message not found. Check permissions." warning. There is no
+non-vulnerable client-side handshake that works on stock 4.5.12-4.5.14 (the cookie cmd.cgi
+issues is dropped by its own length check in getcgi.c), so recognize the rejection and tell the
+user the server-side fix: on 4.5.13+ set cgi_cookie_fail_open=1 in cgi.cfg (which re-opens the
+CVE; prefer a fixed upstream release), or run <= 4.5.11 (also vulnerable to it).
+
+fixes: https://github.com/sadsfae/mozzo/issues/70
+
 
 ## v0.12.5 (2026-09-23)
 

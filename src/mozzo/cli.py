@@ -279,8 +279,25 @@ class MozzoNagiosClient:
                 self.cmd_url, data=payload, auth=self.auth, verify=self.verify_ssl
             )
             response.raise_for_status()
+            lower_text = response.text.lower()
             if "successfully submitted" in response.text:
                 print("✅ Command successfully submitted to Nagios.")
+            elif (
+                "invalid or missing csrf cookie" in lower_text
+                or "invalid form id" in lower_text
+            ):
+                # Nagios 4.5.12+ rejects external cmd.cgi clients (CSRF,
+                # CVE-2026-48548). No non-vulnerable client-side handshake
+                # works on stock 4.5.12+: the cookie cmd.cgi issues is dropped
+                # by its own length gate (getcgi.c), so the server-side
+                # opt-out is the only fix until upstream ships a correct flow.
+                print(
+                    "⚠️ Command rejected by Nagios cmd.cgi CSRF check "
+                    "(Nagios 4.5.12+, CVE-2026-48548). On 4.5.13+ set "
+                    "cgi_cookie_fail_open=1 in cgi.cfg (that re-opens the "
+                    "CVE; prefer a fixed release), or run <= 4.5.11 "
+                    "(also unpatched). See issue #70."
+                )
             else:
                 print(
                     "⚠️ Command sent, but success message not found. "
