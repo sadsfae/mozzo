@@ -1,44 +1,44 @@
 # CHANGELOG
 
 
-## Unreleased
-
-### Features
-
-- Add optional HTTP/SOCKS proxy support via config.yml
-
-`config.yml` can set `proxy:` to route all requests through an HTTP(S) or SOCKS proxy, e.g.
-`socks5h://127.0.0.1:1080` for an SSH dynamic forward. Supports http, https, socks4, socks4a,
-socks5 and socks5h; SOCKS schemes need PySocks. Invalid proxy URLs fail fast with a clear error,
-and credentials are redacted from error messages.
-
-    fixes: https://github.com/sadsfae/mozzo/issues/69
+## v0.13.0 (2026-11-09)
 
 ### Bug Fixes
 
 - Detect Nagios 4.5.12+ cmd.cgi CSRF rejections
+  ([`2d2bc6e`](https://github.com/sadsfae/mozzo/commit/2d2bc6ed457e91aadd59ae36c4c8b00104d11fd8))
 
-Nagios 4.5.12 (CVE-2026-48548) rejects every external cmd.cgi client: ack/downtime/toggle
-commands get an "Invalid or missing CSRF cookie!" page and never reach Nagios, while mozzo
-printed the misleading "success message not found. Check permissions." warning. There is no
-non-vulnerable client-side handshake that works on stock 4.5.12-4.5.14 (the cookie cmd.cgi
-issues is dropped by its own length check in getcgi.c), so recognize the rejection and tell the
-user the server-side fix: on 4.5.13+ set cgi_cookie_fail_open=1 in cgi.cfg (which re-opens the
-CVE; prefer a fixed upstream release), or run <= 4.5.11 (also vulnerable to it).
+Nagios 4.5.12 (CVE-2026-48548) rejects every external cmd.cgi client: ack/downtime/toggle commits
+  get an 'Invalid or missing CSRF cookie!' page and never reach Nagios, while mozzo printed the
+  misleading permission warning. No client-side handshake works on stock 4.5.12-4.5.14 (the cookie
+  cmd.cgi issues is dropped by getcgi.c's own length gate), so detect the rejection and tell the
+  user the server-side fix: cgi_cookie_fail_open=1 in cgi.cfg on 4.5.13+, or run <= 4.5.11.
 
 fixes: https://github.com/sadsfae/mozzo/issues/70
 
 - Make ack commands set persistent acks and send ack notifications
+  ([`07fe4f4`](https://github.com/sadsfae/mozzo/commit/07fe4f4b5c55e4f4320a5ab319afb4b9509ff215))
 
-v0.12.4 stopped sending send_notification/persistent (they were sent as "off" values that
-cmd.cgi treats as checked, so they were removed as bug #59), which made acks non-persistent
-and notification-silent. Those were the behaviors operators relied on: non-persistent ack
-comments are deleted when the acknowledgement is cleared (problem recovers), so acks
-disappeared from --ack-history and no acknowledgement notification was sent. Restore the
-checked values (the web form defaults to notification on, persistent off; sending both is what
-an operator ticking "Persistent Comment" gets) and document the behavior in the README.
+v0.12.4 stopped sending send_notification/persistent (they were sent as 'off' values that cmd.cgi
+  presence-parses as checked, so they were removed per issue #59), which made acks non-persistent
+  and notification-silent. Non-persistent ack comments are deleted when the acknowledgement is
+  cleared (problem recovers), so acks disappeared from --ack-history and no ack notification was
+  sent. Restore the checked values: persistent acks plus a notification, what an operator ticking
+  'Persistent Comment' in the web form gets (web form defaults: notification on, persistent off).
 
 fixes: https://github.com/sadsfae/mozzo/issues/73
+
+### Features
+
+- Add optional HTTP/SOCKS proxy support via config
+  ([`f49820b`](https://github.com/sadsfae/mozzo/commit/f49820bfd237314f540e34d55541caae2c43134a))
+
+config.yml gains an optional proxy setting (e.g. socks5h://127.0.0.1:1080) that routes all Nagios
+  requests through an HTTP or SOCKS proxy. Invalid URLs fail fast with a redacted error; SOCKS
+  schemes require PySocks. The configured proxy is authoritative over http_proxy/https_proxy
+  environment variables.
+
+fixes: https://github.com/sadsfae/mozzo/issues/69
 
 
 ## v0.12.5 (2026-09-23)
