@@ -120,6 +120,14 @@ verify_ssl: false
 date_format: "%m-%d-%Y %H:%M:%S"
 ```
 
+An optional `proxy` setting routes all requests through an HTTP(S) or SOCKS proxy, for example an SSH dynamic forward:
+
+```yaml
+proxy: socks5h://127.0.0.1:1080
+```
+
+Supported schemes: `http`, `https`, `socks4`, `socks4a`, `socks5`, `socks5h`. SOCKS schemes need the `PySocks` package (`python3-pysocks` on Fedora; otherwise `pip install PySocks`; installed automatically when mozzo is installed with pip). Leave the setting out or empty to go direct.
+
 ## Usage
 
 > [!IMPORTANT]

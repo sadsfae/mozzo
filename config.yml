@@ -7,4 +7,6 @@ nagios_password: mysecurepassword
 default_reporting_days: 365 # in days
 default_downtime: 120 # in minutes
 verify_ssl: false
+# Optional outbound proxy (HTTP/HTTPS/SOCKS), e.g. an SSH dynamic forward:
+# proxy: socks5h://127.0.0.1:1080
 date_format: "%m-%d-%Y %H:%M:%S"
