@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## Unreleased
+
+### Features
+
+- Add optional HTTP/SOCKS proxy support via config.yml
+
+`config.yml` can set `proxy:` to route all requests through an HTTP(S) or SOCKS proxy, e.g.
+`socks5h://127.0.0.1:1080` for an SSH dynamic forward. Supports http, https, socks4, socks4a,
+socks5 and socks5h; SOCKS schemes need PySocks. Invalid proxy URLs fail fast with a clear error,
+and credentials are redacted from error messages.
+
+    fixes: https://github.com/sadsfae/mozzo/issues/69
+
+
 ## v0.12.5 (2026-09-23)
 
 ### Bug Fixes

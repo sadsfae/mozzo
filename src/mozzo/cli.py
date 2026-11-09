@@ -6,6 +6,7 @@ import io
 import json
 import os
 import sys
+from urllib.parse import urlsplit
 
 import requests
 import urllib3
@@ -45,6 +46,71 @@ class TimeoutHTTPAdapter(requests.adapters.HTTPAdapter):
         if kwargs.get("timeout") is None:
             kwargs["timeout"] = self.timeout
         return super().send(request, **kwargs)
+
+
+PROXY_SCHEMES = ("http", "https", "socks4", "socks4a", "socks5", "socks5h")
+SOCKS_SCHEMES = ("socks4", "socks4a", "socks5", "socks5h")
+
+
+class ProxyError(Exception):
+    pass
+
+
+def redact_proxy(proxy):
+    """Proxy URL with credentials stripped, for error messages."""
+    if "://" not in proxy:
+        return proxy.rsplit("@", 1)[-1]
+    scheme, rest = proxy.split("://", 1)
+    return f"{scheme}://{rest.rsplit('@', 1)[-1]}"
+
+
+def normalize_proxy(proxy):
+    """Map a configured proxy value to '' (no proxy) or a stripped URL."""
+    if not proxy:
+        return ""
+    proxy = proxy.strip()
+    return "" if proxy in ("none", "-") else proxy
+
+
+def build_proxy_map(proxy):
+    """Validate a proxy URL and build the requests proxy mapping.
+
+    The same proxy covers both http and https destinations. SOCKS schemes
+    need the optional PySocks module.
+
+    Raises:
+        ProxyError: Unsupported scheme, or missing host/port.
+    """
+    if not proxy:
+        return {}
+    try:
+        parts = urlsplit(proxy)
+    except ValueError:
+        raise ProxyError(f"Invalid proxy URL: {redact_proxy(proxy)}")
+    if parts.scheme not in PROXY_SCHEMES:
+        raise ProxyError(
+            f"Unsupported proxy scheme '{parts.scheme}' in {redact_proxy(proxy)}. "
+            f"Use one of: {', '.join(PROXY_SCHEMES)} "
+            "(e.g. socks5h://127.0.0.1:1080)"
+        )
+    try:
+        port = parts.port
+    except ValueError:
+        raise ProxyError(f"Proxy URL has an invalid port: {redact_proxy(proxy)}")
+    if not parts.hostname or not port:
+        raise ProxyError(
+            "Proxy URL must include a host and port "
+            f"(e.g. socks5h://127.0.0.1:1080): {redact_proxy(proxy)}"
+        )
+    if parts.scheme in SOCKS_SCHEMES:
+        try:
+            import socks  # noqa: F401
+        except ImportError:
+            raise ProxyError(
+                f"The 'PySocks' package is required for '{parts.scheme}' proxies. "
+                "Install it (pip install PySocks) and try again."
+            )
+    return {"http": proxy, "https": proxy}
 
 
 class MozzoNagiosClient:
@@ -131,6 +197,32 @@ class MozzoNagiosClient:
         adapter = TimeoutHTTPAdapter()
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
+
+        # Optional outbound proxy (e.g. socks5h://127.0.0.1:1080). A
+        # configured proxy is authoritative: without disabling trust_env,
+        # requests lets http_proxy/https_proxy environment variables override
+        # it. trust_env also gates the REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE
+        # lookup, so hoist that into verify_ssl.
+        proxy = self.config.get("proxy", "")
+        if proxy and not isinstance(proxy, str):
+            print(
+                "❌ 'proxy' in config.yml must be a proxy URL string "
+                "(e.g. socks5h://127.0.0.1:1080)."
+            )
+            sys.exit(1)
+        proxy = normalize_proxy(proxy)
+        if proxy:
+            try:
+                self.session.proxies.update(build_proxy_map(proxy))
+            except ProxyError as e:
+                print(f"❌ {e}")
+                sys.exit(1)
+            self.session.trust_env = False
+            ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get(
+                "CURL_CA_BUNDLE"
+            )
+            if ca_bundle and self.verify_ssl is True:
+                self.verify_ssl = ca_bundle
 
     def _find_config(self, provided_path):
         if provided_path and os.path.exists(provided_path):
