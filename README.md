@@ -158,6 +158,11 @@ mozzo --unhandled
 mozzo --service-issues [ --host host.example.com ]
 ```
 
+> [!NOTE]
+> Acknowledgements are sticky and persistent: they survive a Nagios restart and stay in the
+> acknowledgement history after the problem recovers (until removed manually), and an
+> acknowledgement notification is sent to the configured contacts.
+
 ### Acknowledge a Specific Service
 
 ```bash

@@ -451,9 +451,13 @@ class MozzoNagiosClient:
             "cmd_typ": 34 if service else 33,
             "host": host,
             "sticky_ack": "on",
+            # cmd.cgi parses send_notification/persistent as checkbox presence
+            # (value ignored): send both to keep acks persistent and send the
+            # ack notification (the web form defaults to notification on,
+            # persistent off).
+            "send_notification": "on",
+            "persistent": "on",
         }
-        # cmd.cgi parses send_notification/persistent as checkbox presence, not
-        # value: sending "off" enables them. Omit to keep them disabled.
         if service:
             payload["service"] = service
         return payload

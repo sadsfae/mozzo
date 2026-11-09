@@ -28,6 +28,18 @@ CVE; prefer a fixed upstream release), or run <= 4.5.11 (also vulnerable to it).
 
 fixes: https://github.com/sadsfae/mozzo/issues/70
 
+- Make ack commands set persistent acks and send ack notifications
+
+v0.12.4 stopped sending send_notification/persistent (they were sent as "off" values that
+cmd.cgi treats as checked, so they were removed as bug #59), which made acks non-persistent
+and notification-silent. Those were the behaviors operators relied on: non-persistent ack
+comments are deleted when the acknowledgement is cleared (problem recovers), so acks
+disappeared from --ack-history and no acknowledgement notification was sent. Restore the
+checked values (the web form defaults to notification on, persistent off; sending both is what
+an operator ticking "Persistent Comment" gets) and document the behavior in the README.
+
+fixes: https://github.com/sadsfae/mozzo/issues/73
+
 
 ## v0.12.5 (2026-09-23)
 
