@@ -14,7 +14,8 @@ authors = [
 ]
 dependencies = [
     "requests",
-    "PyYAML"
+    "PyYAML",
+    "PySocks>=1.7.1"
 ]
 
 [project.scripts]
