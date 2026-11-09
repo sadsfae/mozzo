@@ -11,7 +11,11 @@ A lightweight CLI for acknowledging and managing [Nagios Core](https://www.nagio
 Mozzo interacts with Nagios Core (4.x) via `cmd.cgi` and `statusjson.cgi` using standard HTTPS requests. It allows you to acknowledge alerts, schedule downtime, generate service/host uptime reporting and view statuses without needing to install specialized Nagios libraries or scrape HTML.
 
 > [!NOTE]
-> This is compatible with Nagios Core 4.4.x and hasn't been tested with 4.5.x but will probably work.
+> This is compatible with Nagios Core 4.4.x. Nagios Core 4.5.12+ rejects all external
+> cmd.cgi clients (CVE-2026-48548): mozzo detects the rejection. On 4.5.13+ setting
+> `cgi_cookie_fail_open=1` in `cgi.cfg` restores command submission but re-opens that CVE
+> (prefer a fixed upstream release); running <= 4.5.11 also avoids the rejection but remains
+> vulnerable.
 
 ## Table of Contents
 
@@ -119,6 +123,14 @@ default_reporting_days: 365 # in days
 verify_ssl: false
 date_format: "%m-%d-%Y %H:%M:%S"
 ```
+
+An optional `proxy` setting routes all requests through an HTTP(S) or SOCKS proxy, for example an SSH dynamic forward:
+
+```yaml
+proxy: socks5h://127.0.0.1:1080
+```
+
+Supported schemes: `http`, `https`, `socks4`, `socks4a`, `socks5`, `socks5h`. SOCKS schemes need the `PySocks` package (`python3-pysocks` on Fedora; otherwise `pip install PySocks`; installed automatically when mozzo is installed with pip). Leave the setting out or empty to go direct.
 
 ## Usage
 
